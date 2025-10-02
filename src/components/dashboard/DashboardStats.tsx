@@ -4,31 +4,31 @@ import { BookOpen, Calendar, TrendingUp, Activity } from "lucide-react";
 export const DashboardStats = () => {
   const stats = [
     {
-      title: "Total Books",
+      title: "Wszystkie książki",
       value: "0",
       icon: BookOpen,
-      description: "In library",
-      trend: "+0 this week"
+      description: "W bibliotece",
+      trend: "+0 w tym tygodniu"
     },
     {
-      title: "Scheduled Posts",
+      title: "Zaplanowane posty",
       value: "0",
       icon: Calendar,
-      description: "Next 7 days",
-      trend: "0 today"
+      description: "Następne 7 dni",
+      trend: "0 dzisiaj"
     },
     {
-      title: "Published",
+      title: "Opublikowane",
       value: "0",
       icon: TrendingUp,
-      description: "This month",
-      trend: "+0% vs last month"
+      description: "W tym miesiącu",
+      trend: "+0% vs. ostatni miesiąc"
     },
     {
-      title: "Active Platforms",
+      title: "Aktywne platformy",
       value: "0/3",
       icon: Activity,
-      description: "Connected",
+      description: "Połączone",
       trend: "Facebook, X, Instagram"
     }
   ];

@@ -6,19 +6,19 @@ export const RecentActivity = () => {
   const activities = [
     {
       type: "info",
-      message: "Welcome to SocialFlow! Connect your Supabase database to get started.",
-      time: "Just now",
+      message: "Witaj w SocialFlow! Połącz swoją bazę danych Supabase, aby rozpocząć.",
+      time: "Przed chwilą",
       platform: "System"
     }
   ];
 
   return (
-    <Card className="p-6 bg-gradient-card border-border/50">
+    <Card className="p-6 bg-gradient-card border-border/50 shadow-card">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">Recent Activity</h2>
+        <h2 className="text-xl font-semibold">Ostatnia aktywność</h2>
         <Badge variant="secondary" className="text-xs">
           <Clock className="h-3 w-3 mr-1" />
-          Live
+          Na żywo
         </Badge>
       </div>
       <div className="space-y-4">

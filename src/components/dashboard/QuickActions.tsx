@@ -6,33 +6,33 @@ export const QuickActions = () => {
   const actions = [
     {
       icon: Plus,
-      label: "Add Book",
-      description: "Manually add a new book",
+      label: "Dodaj książkę",
+      description: "Ręcznie dodaj nową książkę",
       variant: "default" as const
     },
     {
       icon: Upload,
-      label: "Import CSV",
-      description: "Bulk import from file",
+      label: "Importuj CSV",
+      description: "Masowy import z pliku",
       variant: "secondary" as const
     },
     {
       icon: Calendar,
-      label: "Schedule Posts",
-      description: "Plan your campaign",
+      label: "Zaplanuj posty",
+      description: "Zaplanuj kampanię",
       variant: "secondary" as const
     },
     {
       icon: Settings,
-      label: "Connect Platforms",
-      description: "Link social accounts",
+      label: "Połącz platformy",
+      description: "Połącz konta społecznościowe",
       variant: "secondary" as const
     }
   ];
 
   return (
-    <Card className="p-6 bg-gradient-card border-border/50">
-      <h2 className="text-xl font-semibold mb-6">Quick Actions</h2>
+    <Card className="p-6 bg-gradient-card border-border/50 shadow-card">
+      <h2 className="text-xl font-semibold mb-6">Szybkie akcje</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {actions.map((action, index) => {
           const Icon = action.icon;
