@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Calendar, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { ScheduleDialog } from "./ScheduleDialog";
 
 export const BooksList = () => {
   const { toast } = useToast();
@@ -144,6 +145,46 @@ export const BooksList = () => {
     publishMutation.mutate({ bookIds });
   };
 
+  const schedulePublishMutation = useMutation({
+    mutationFn: async ({ 
+      bookId, 
+      scheduledAt, 
+      autoPublishEnabled 
+    }: { 
+      bookId: string; 
+      scheduledAt: string | null; 
+      autoPublishEnabled: boolean 
+    }) => {
+      const { error } = await supabase
+        .from("books")
+        .update({ 
+          scheduled_publish_at: scheduledAt,
+          auto_publish_enabled: autoPublishEnabled 
+        })
+        .eq("id", bookId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+      toast({
+        title: "Zapisano",
+        description: "Harmonogram publikacji został zaktualizowany",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zapisać harmonogramu",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleScheduleChange = (bookId: string, scheduledAt: string | null, autoPublishEnabled: boolean) => {
+    schedulePublishMutation.mutate({ bookId, scheduledAt, autoPublishEnabled });
+  };
+
   const unpublishedCount = books?.filter((book) => !book.published).length || 0;
 
   return (
@@ -190,6 +231,7 @@ export const BooksList = () => {
                   <TableHead>Status</TableHead>
                   <TableHead>Cena</TableHead>
                   <TableHead>Publikacja</TableHead>
+                  <TableHead>Harmonogram</TableHead>
                   <TableHead className="text-right">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
@@ -205,6 +247,14 @@ export const BooksList = () => {
                         <Badge variant={book.published ? "default" : "secondary"}>
                           {book.published ? "Opublikowano" : "Nieopublikowano"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {!book.published && (
+                          <ScheduleDialog
+                            book={book}
+                            onScheduleChange={handleScheduleChange}
+                          />
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         {!book.published && (
@@ -229,7 +279,7 @@ export const BooksList = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       Brak książek w bazie
                     </TableCell>
                   </TableRow>

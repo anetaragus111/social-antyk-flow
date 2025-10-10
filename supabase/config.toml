@@ -1,5 +1,8 @@
 project_id = "dmrfbokchkxjzslfzeps"
 
+[functions.auto-publish-books]
+verify_jwt = false
+
 [functions.publish-to-x]
 verify_jwt = false
 

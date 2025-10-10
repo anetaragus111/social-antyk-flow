@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       books: {
         Row: {
+          auto_publish_enabled: boolean | null
           code: string
           created_at: string
           id: string
@@ -23,12 +24,14 @@ export type Database = {
           promotional_price: number | null
           published: boolean
           sale_price: number | null
+          scheduled_publish_at: string | null
           stock_status: string | null
           title: string
           updated_at: string
           warehouse_quantity: number | null
         }
         Insert: {
+          auto_publish_enabled?: boolean | null
           code: string
           created_at?: string
           id?: string
@@ -36,12 +39,14 @@ export type Database = {
           promotional_price?: number | null
           published?: boolean
           sale_price?: number | null
+          scheduled_publish_at?: string | null
           stock_status?: string | null
           title: string
           updated_at?: string
           warehouse_quantity?: number | null
         }
         Update: {
+          auto_publish_enabled?: boolean | null
           code?: string
           created_at?: string
           id?: string
@@ -49,6 +54,7 @@ export type Database = {
           promotional_price?: number | null
           published?: boolean
           sale_price?: number | null
+          scheduled_publish_at?: string | null
           stock_status?: string | null
           title?: string
           updated_at?: string
