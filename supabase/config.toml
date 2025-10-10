@@ -1,1 +1,4 @@
 project_id = "dmrfbokchkxjzslfzeps"
+
+[functions.publish-to-x]
+verify_jwt = false
