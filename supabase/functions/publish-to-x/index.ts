@@ -25,17 +25,21 @@ function generateOAuthSignature(
   consumerSecret: string,
   tokenSecret: string
 ): string {
-  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
-    Object.entries(params)
-      .sort()
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&")
-  )}`;
+  const sortedParams = Object.entries(params).sort();
+  console.log("Sorted OAuth Params:", sortedParams.map(([k, v]) => `${k}=${v.substring(0, 10)}...`));
+  
+  const paramString = sortedParams.map(([k, v]) => `${k}=${v}`).join("&");
+  console.log("Parameter String (encoded):", encodeURIComponent(paramString).substring(0, 200) + "...");
+  
+  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`;
   const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+  
+  console.log("Signature Base String:", signatureBaseString.substring(0, 300) + "...");
+  console.log("Signing Key Length:", signingKey.length);
+  
   const hmacSha1 = createHmac("sha1", signingKey);
   const signature = hmacSha1.update(signatureBaseString).digest("base64");
 
-  console.log("Signature Base String:", signatureBaseString);
   console.log("Generated Signature:", signature);
 
   return signature;
@@ -80,28 +84,45 @@ async function testConnection(): Promise<any> {
   const url = "https://api.x.com/2/users/me";
   const method = "GET";
 
+  console.log("=== Testing Twitter API Connection ===");
+  console.log("API Key (first 10 chars):", API_KEY?.substring(0, 10) + "...");
+  console.log("Access Token (first 10 chars):", ACCESS_TOKEN?.substring(0, 10) + "...");
+  console.log("Current Timestamp:", Math.floor(Date.now() / 1000));
+
   const oauthHeader = generateOAuthHeader(method, url);
-  console.log("Test Connection - OAuth Header:", oauthHeader);
+  console.log("Test Connection - OAuth Header:", oauthHeader.substring(0, 200) + "...");
 
-  const response = await fetch(url, {
-    method: method,
-    headers: {
-      Authorization: oauthHeader,
-      "Content-Type": "application/json",
-    },
-  });
+  try {
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        Authorization: oauthHeader,
+        "Content-Type": "application/json",
+      },
+    });
 
-  const responseText = await response.text();
-  console.log("Test Connection - Response Status:", response.status);
-  console.log("Test Connection - Response Body:", responseText);
+    const responseText = await response.text();
+    console.log("Test Connection - Response Status:", response.status);
+    console.log("Test Connection - Response Headers:", JSON.stringify(Object.fromEntries(response.headers)));
+    console.log("Test Connection - Response Body:", responseText);
 
-  if (!response.ok) {
-    throw new Error(
-      `HTTP error! status: ${response.status}, body: ${responseText}`
-    );
+    if (!response.ok) {
+      let errorDetails;
+      try {
+        errorDetails = JSON.parse(responseText);
+      } catch (e) {
+        errorDetails = responseText;
+      }
+      throw new Error(
+        `HTTP error! status: ${response.status}, details: ${JSON.stringify(errorDetails)}`
+      );
+    }
+
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error("Test Connection - Caught Error:", error);
+    throw error;
   }
-
-  return JSON.parse(responseText);
 }
 
 async function sendTweet(tweetText: string): Promise<any> {
