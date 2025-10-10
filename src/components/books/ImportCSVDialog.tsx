@@ -59,8 +59,13 @@ export const ImportCSVDialog = ({ open, onOpenChange }: ImportCSVDialogProps) =>
     Papa.parse<CSVRow>(file, {
       header: true,
       skipEmptyLines: true,
+      encoding: "UTF-8",
       complete: async (results) => {
-        const total = results.data.length;
+        // Filter out items marked as "niewidoczny"
+        const visibleItems = results.data.filter(
+          (row) => row["Stan towaru"]?.trim().toLowerCase() !== "niewidoczny"
+        );
+        const total = visibleItems.length;
         let success = 0;
         let failed = 0;
 
@@ -68,8 +73,8 @@ export const ImportCSVDialog = ({ open, onOpenChange }: ImportCSVDialogProps) =>
 
         // Process in batches of 10
         const batchSize = 10;
-        for (let i = 0; i < results.data.length; i += batchSize) {
-          const batch = results.data.slice(i, i + batchSize);
+        for (let i = 0; i < visibleItems.length; i += batchSize) {
+          const batch = visibleItems.slice(i, i + batchSize);
           
           const bookData = batch.map((row) => ({
             code: row.Kod?.trim() || "",
