@@ -29,6 +29,13 @@ export const ScheduleDialog = ({ book, onScheduleChange }: ScheduleDialogProps) 
     setOpen(false);
   };
 
+  const handleCancelSchedule = () => {
+    onScheduleChange(book.id, null, false);
+    setAutoPublishEnabled(false);
+    setScheduledDateTime("");
+    setOpen(false);
+  };
+
   const isScheduled = book.auto_publish_enabled && book.scheduled_publish_at;
   const scheduledDate = isScheduled ? new Date(book.scheduled_publish_at) : null;
 
@@ -89,11 +96,18 @@ export const ScheduleDialog = ({ book, onScheduleChange }: ScheduleDialogProps) 
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={handleSave}>Zapisz</Button>
+          <div className="flex justify-between gap-2 pt-4">
+            {isScheduled && (
+              <Button variant="destructive" onClick={handleCancelSchedule}>
+                Anuluj harmonogram
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Zamknij
+              </Button>
+              <Button onClick={handleSave}>Zapisz</Button>
+            </div>
           </div>
         </div>
       </DialogContent>
