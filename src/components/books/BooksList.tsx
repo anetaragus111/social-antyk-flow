@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Send, Calendar, Clock } from "lucide-react";
+import { Loader2, Send, Calendar, Clock, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { ScheduleDialog } from "./ScheduleDialog";
@@ -337,6 +337,7 @@ export const BooksList = () => {
                 <TableRow>
                   <TableHead>Kod</TableHead>
                   <TableHead>Tytuł</TableHead>
+                  <TableHead>Link</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Cena</TableHead>
                   <TableHead>Publikacja</TableHead>
@@ -348,6 +349,20 @@ export const BooksList = () => {
                 {books && books.length > 0 ? books.map(book => <TableRow key={book.id}>
                       <TableCell className="font-medium">{book.code}</TableCell>
                       <TableCell className="max-w-md truncate">{book.title}</TableCell>
+                      <TableCell>
+                        {book.product_url ? (
+                          <a 
+                            href={book.product_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-primary hover:text-primary/80 transition-colors"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>{book.stock_status || "-"}</TableCell>
                       <TableCell>{book.sale_price ? `${book.sale_price} zł` : "-"}</TableCell>
                       <TableCell>
@@ -367,7 +382,7 @@ export const BooksList = () => {
                           </Button>}
                       </TableCell>
                     </TableRow>) : <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       Brak książek w bazie
                     </TableCell>
                   </TableRow>}

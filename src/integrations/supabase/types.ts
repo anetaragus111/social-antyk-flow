@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          product_url: string | null
           promotional_price: number | null
           published: boolean
           sale_price: number | null
@@ -36,6 +37,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          product_url?: string | null
           promotional_price?: number | null
           published?: boolean
           sale_price?: number | null
@@ -51,6 +53,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          product_url?: string | null
           promotional_price?: number | null
           published?: boolean
           sale_price?: number | null

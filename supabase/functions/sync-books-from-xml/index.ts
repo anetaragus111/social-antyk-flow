@@ -11,6 +11,7 @@ interface BookData {
   image_url: string;
   stock_status: string;
   sale_price: number;
+  product_url: string;
 }
 
 Deno.serve(async (req) => {
@@ -41,6 +42,7 @@ Deno.serve(async (req) => {
       const codeMatch = itemXml.match(/<g:id>(.*?)<\/g:id>/);
       const titleMatch = itemXml.match(/<g:title>(?:<!--\[CDATA\[)?(.*?)(?:\]\]-->)?<\/g:title>/);
       const imageMatch = itemXml.match(/<g:image_link>(?:<!--\[CDATA\[)?(.*?)(?:\]\]-->)?<\/g:image_link>/);
+      const linkMatch = itemXml.match(/<g:link>(?:<!--\[CDATA\[)?(.*?)(?:\]\]-->)?<\/g:link>/);
       const availabilityMatch = itemXml.match(/<g:availability>(.*?)<\/g:availability>/);
       const priceMatch = itemXml.match(/<g:price>(.*?) PLN<\/g:price>/);
       
@@ -49,6 +51,7 @@ Deno.serve(async (req) => {
           code: codeMatch[1],
           title: titleMatch[1],
           image_url: imageMatch ? imageMatch[1] : '',
+          product_url: linkMatch ? linkMatch[1] : '',
           stock_status: availabilityMatch ? availabilityMatch[1] : 'unknown',
           sale_price: priceMatch ? parseFloat(priceMatch[1]) : 0,
         });
@@ -87,6 +90,7 @@ Deno.serve(async (req) => {
           .update({
             title: xmlBook.title,
             image_url: xmlBook.image_url,
+            product_url: xmlBook.product_url,
             stock_status: xmlBook.stock_status,
             sale_price: xmlBook.sale_price,
           })
