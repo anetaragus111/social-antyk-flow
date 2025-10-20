@@ -47,9 +47,12 @@ Deno.serve(async (req) => {
       const priceMatch = itemXml.match(/<g:price>(.*?) PLN<\/g:price>/);
       
       if (codeMatch && titleMatch) {
+        const title = titleMatch[1].trim();
+        console.log(`Parsed XML title: "${title}"`);
+        
         books.push({
           code: codeMatch[1],
-          title: titleMatch[1],
+          title: title,
           image_url: imageMatch ? imageMatch[1] : '',
           product_url: linkMatch ? linkMatch[1] : '',
           stock_status: availabilityMatch ? availabilityMatch[1] : 'unknown',
@@ -77,21 +80,65 @@ Deno.serve(async (req) => {
     
     console.log(`Found ${dbBooks?.length || 0} books in database`);
     
-    // Helper function to normalize titles for comparison
+    // Helper functions to normalize and shorten titles
     const normalizeTitle = (title: string) => {
-      return title.toLowerCase().trim().replace(/\s+/g, ' ');
+      return title
+        .toLowerCase()
+        .normalize('NFD') // split accents
+        .replace(/[\u0300-\u036f]/g, '') // remove accents
+        .replace(/[-–—]/g, ' ') // unify dashes to space
+        .replace(/[^\p{L}\p{N}\s]/gu, '') // remove punctuation, keep letters/digits
+        .replace(/\s+/g, ' ') // normalize spaces
+        .trim();
     };
+
+    const shortTitle = (title: string) => {
+      const t = title.split(/[:\-–—\(\[]/)[0]; // take part before colon/dash/paren/bracket
+      return normalizeTitle(t);
+    };
+    
+    console.log('Sample XML titles:', books.slice(0, 3).map(b => `"${b.title}"`));
+    console.log('Sample DB titles:', dbBooks?.slice(0, 3).map(b => `"${b.title}"`));
     
     // Update each book by matching titles
     let updatedCount = 0;
     let notFoundCount = 0;
+    let matchedPairs: string[] = [];
     
     for (const dbBook of dbBooks || []) {
-      // Try to find by normalized title
       const normalizedDbTitle = normalizeTitle(dbBook.title);
-      const xmlBook = books.find(b => 
-        normalizeTitle(b.title) === normalizedDbTitle
-      );
+      const normalizedDbShort = shortTitle(dbBook.title);
+      console.log(`Looking for DB title: "${dbBook.title}" -> normalized: "${normalizedDbTitle}" | short: "${normalizedDbShort}"`);
+      
+      // 1) Exact match on full normalized title
+      let xmlBook = books.find(b => normalizeTitle(b.title) === normalizedDbTitle);
+
+      // 2) Exact match on short normalized title (before dash/colon)
+      if (!xmlBook) {
+        xmlBook = books.find(b => shortTitle(b.title) === normalizedDbShort);
+      }
+
+      // 3) Includes match (one contains the other)
+      if (!xmlBook) {
+        xmlBook = books.find(b => {
+          const x = normalizeTitle(b.title);
+          const xs = shortTitle(b.title);
+          return x.includes(normalizedDbShort) || normalizedDbShort.includes(x) ||
+                 xs.includes(normalizedDbShort) || normalizedDbShort.includes(xs) ||
+                 x.includes(normalizedDbTitle) || normalizedDbTitle.includes(x);
+        });
+      }
+
+      // 4) Fuzzy match by overlapping words (>= 50%, at least 2)
+      if (!xmlBook) {
+        const dbWords = normalizedDbShort.split(' ').filter(w => w.length > 2);
+        xmlBook = books.find(b => {
+          const xmlWords = shortTitle(b.title).split(' ').filter(w => w.length > 2);
+          const matchingWords = dbWords.filter(word => xmlWords.some(xmlWord => xmlWord.includes(word) || word.includes(xmlWord)));
+          const threshold = Math.max(2, Math.ceil(dbWords.length * 0.5));
+          return matchingWords.length >= threshold;
+        });
+      }
       
       if (xmlBook) {
         const { error: updateError } = await supabase
@@ -110,13 +157,19 @@ Deno.serve(async (req) => {
           console.error(`Error updating book "${dbBook.title}":`, updateError);
         } else {
           updatedCount++;
-          console.log(`Updated book: ${dbBook.title} -> ${xmlBook.code}`);
+          matchedPairs.push(`"${dbBook.title}" -> "${xmlBook.title}"`);
+          console.log(`✅ Matched: "${dbBook.title}" -> "${xmlBook.title}"`);
         }
       } else {
         notFoundCount++;
-        console.log(`Book not found in XML: ${dbBook.title}`);
+        console.log(`❌ No match for: "${dbBook.title}"`);
       }
     }
+    
+    console.log('=== SYNC SUMMARY ===');
+    console.log(`Updated: ${updatedCount}`);
+    console.log(`Not found: ${notFoundCount}`);
+    console.log('Sample matches:', matchedPairs.slice(0, 5));
     
     const result = {
       success: true,
