@@ -33,8 +33,8 @@ export const BooksList = () => {
       const {
         data,
         error
-      } = await supabase.from("books").select("*").order("created_at", {
-        ascending: false
+      } = await supabase.from("books").select("*").order("code", {
+        ascending: true
       });
       if (error) throw error;
       return data;
