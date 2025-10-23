@@ -169,20 +169,41 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Format tweet
-        let tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
+        // Format tweet based on template type
+        let tweetText = '';
+        const isVisualTemplate = book.template_type === 'visual';
         
-        if (book.promotional_price && book.promotional_price > 0) {
-          tweetText += `💰 Cena: ${book.sale_price} zł\n🔥 Promocja: ${book.promotional_price} zł\n\n`;
-        } else if (book.sale_price) {
-          tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
+        console.log(`Using ${isVisualTemplate ? 'visual' : 'text'} template for book ${id}`);
+        
+        if (isVisualTemplate) {
+          // Visual template: Short text with product link (Twitter will show card preview)
+          tweetText = `📚 ${book.title}\n\n`;
+          
+          if (book.promotional_price && book.promotional_price > 0) {
+            tweetText += `🔥 Promocja: ${book.promotional_price} zł (zamiast ${book.sale_price} zł)\n\n`;
+          } else if (book.sale_price) {
+            tweetText += `💰 ${book.sale_price} zł\n\n`;
+          }
+          
+          if (book.product_url) {
+            tweetText += `${book.product_url}`;
+          }
+        } else {
+          // Text template: Full text format
+          tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
+          
+          if (book.promotional_price && book.promotional_price > 0) {
+            tweetText += `💰 Cena: ${book.sale_price} zł\n🔥 Promocja: ${book.promotional_price} zł\n\n`;
+          } else if (book.sale_price) {
+            tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
+          }
+          
+          if (book.product_url) {
+            tweetText += `Sprawdź: ${book.product_url}\n\n`;
+          }
+          
+          tweetText += `#ksiazki #antyk #promocja`;
         }
-        
-        if (book.image_url) {
-          tweetText += `Sprawdź: ${book.image_url}\n\n`;
-        }
-        
-        tweetText += `#ksiazki #antyk #promocja`;
 
         console.log("Tweet to send:", tweetText);
 
