@@ -27,6 +27,7 @@ export type Database = {
           sale_price: number | null
           scheduled_publish_at: string | null
           stock_status: string | null
+          storage_path: string | null
           template_type: string | null
           title: string
           updated_at: string
@@ -44,6 +45,7 @@ export type Database = {
           sale_price?: number | null
           scheduled_publish_at?: string | null
           stock_status?: string | null
+          storage_path?: string | null
           template_type?: string | null
           title: string
           updated_at?: string
@@ -61,6 +63,7 @@ export type Database = {
           sale_price?: number | null
           scheduled_publish_at?: string | null
           stock_status?: string | null
+          storage_path?: string | null
           template_type?: string | null
           title?: string
           updated_at?: string

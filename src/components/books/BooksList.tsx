@@ -372,6 +372,29 @@ export const BooksList = () => {
   const handleCancelAllScheduled = () => {
     cancelAllScheduledMutation.mutate();
   };
+  
+  const migrateImagesMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("migrate-images-to-storage");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "✅ Migracja zakończona",
+        description: data.message || "Obrazki zostały przeniesione do storage",
+      });
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Błąd migracji",
+        description: error.message || "Nie udało się przenieść obrazków",
+        variant: "destructive",
+      });
+    },
+  });
+  
   const unpublishedCount = books?.filter(book => !book.published).length || 0;
   const scheduledCount = books?.filter(book => 
     book.scheduled_publish_at && book.auto_publish_enabled && !book.published
@@ -397,6 +420,14 @@ export const BooksList = () => {
           </Button>
           <Button variant="outline" onClick={() => testConnectionMutation.mutate()} disabled={testConnectionMutation.isPending} size="sm">
             {testConnectionMutation.isPending ? "Testowanie..." : "🔍 Test połączenia"}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => migrateImagesMutation.mutate()} 
+            disabled={migrateImagesMutation.isPending} 
+            size="sm"
+          >
+            {migrateImagesMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Migracja...</> : "📦 Migruj obrazki"}
           </Button>
           <BulkScheduleDialog unpublishedCount={unpublishedCount} onSchedule={handleBulkSchedule} isScheduling={bulkScheduleMutation.isPending} />
           <Button

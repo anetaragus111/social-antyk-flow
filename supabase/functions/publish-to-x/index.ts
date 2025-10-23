@@ -398,11 +398,33 @@ Deno.serve(async (req) => {
 
         console.log("Tweet to send:", tweetText);
 
-        // Upload media: prefer Supabase Storage override when provided, else use book.image_url
+        // Upload media: prefer storage_path, then Supabase Storage override, then image_url
         let mediaIds: string[] | undefined = undefined;
         try {
-          if (storageBucket && storagePath) {
-            console.log("Uploading media from Supabase Storage...", { storageBucket, storagePath });
+          if (book.storage_path) {
+            console.log("Uploading media from book.storage_path...", { storage_path: book.storage_path });
+            const { data: storageBlob, error: storageError } = await supabaseClient.storage
+              .from('ObrazkiKsiazek')
+              .download(book.storage_path);
+            if (storageError) throw storageError;
+            const arrayBuffer = await storageBlob.arrayBuffer();
+            const inferType = (p: string) => {
+              const ext = p.split('.').pop()?.toLowerCase();
+              switch (ext) {
+                case 'png': return 'image/png';
+                case 'webp': return 'image/webp';
+                case 'gif': return 'image/gif';
+                case 'jpg':
+                case 'jpeg':
+                default: return 'image/jpeg';
+              }
+            };
+            const contentType = storageBlob.type || inferType(book.storage_path);
+            const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
+            mediaIds = [mediaId];
+            console.log("Media uploaded successfully from book.storage_path, media_id:", mediaId);
+          } else if (storageBucket && storagePath) {
+            console.log("Uploading media from Supabase Storage override...", { storageBucket, storagePath });
             const { data: storageBlob, error: storageError } = await supabaseClient.storage
               .from(storageBucket)
               .download(storagePath);
@@ -422,7 +444,7 @@ Deno.serve(async (req) => {
             const contentType = storageBlob.type || inferType(storagePath);
             const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
             mediaIds = [mediaId];
-            console.log("Media uploaded successfully from storage, media_id:", mediaId);
+            console.log("Media uploaded successfully from storage override, media_id:", mediaId);
           } else if (book.image_url) {
             console.log("Uploading media from image_url...");
             const mediaId = await uploadMedia(book.image_url);
