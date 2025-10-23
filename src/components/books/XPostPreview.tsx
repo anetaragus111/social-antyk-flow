@@ -43,20 +43,11 @@ export const XPostPreview = ({ book }: XPostPreviewProps) => {
           </h3>
 
           {/* Price Badge */}
-          {(book.promotional_price || book.sale_price) && (
+          {book.sale_price && (
             <div className="flex items-center gap-2">
               <Badge className="bg-gradient-primary text-primary-foreground px-3 py-1 text-base font-semibold shadow-sm">
-                {book.promotional_price
-                  ? `${book.promotional_price.toFixed(2)} PLN`
-                  : book.sale_price
-                  ? `${book.sale_price.toFixed(2)} PLN`
-                  : null}
+                {book.sale_price.toFixed(2)} PLN
               </Badge>
-              {book.promotional_price && book.sale_price && (
-                <span className="text-sm text-muted-foreground line-through">
-                  {book.sale_price.toFixed(2)} PLN
-                </span>
-              )}
             </div>
           )}
 

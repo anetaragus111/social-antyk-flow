@@ -179,9 +179,7 @@ Deno.serve(async (req) => {
           // Visual template: Short text with product link (Twitter will show card preview)
           tweetText = `📚 ${book.title}\n\n`;
           
-          if (book.promotional_price && book.promotional_price > 0) {
-            tweetText += `🔥 Promocja: ${book.promotional_price} zł (zamiast ${book.sale_price} zł)\n\n`;
-          } else if (book.sale_price) {
+          if (book.sale_price) {
             tweetText += `💰 ${book.sale_price} zł\n\n`;
           }
           
@@ -192,9 +190,7 @@ Deno.serve(async (req) => {
           // Text template: Full text format
           tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
           
-          if (book.promotional_price && book.promotional_price > 0) {
-            tweetText += `💰 Cena: ${book.sale_price} zł\n🔥 Promocja: ${book.promotional_price} zł\n\n`;
-          } else if (book.sale_price) {
+          if (book.sale_price) {
             tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
           }
           
