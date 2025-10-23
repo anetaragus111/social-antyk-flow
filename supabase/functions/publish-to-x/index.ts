@@ -364,42 +364,23 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Format tweet based on template type
-        let tweetText = '';
-        const isVisualTemplate = book.template_type === 'visual';
+        // Format tweet using visual template
+        let tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
         
-        console.log(`Using ${isVisualTemplate ? 'visual' : 'text'} template for book ${id}`);
-        
-        if (isVisualTemplate) {
-          // Visual template: Attractive sales text with description
-          tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
-          
-          if (book.sale_price) {
-            tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
-          }
-          
-          // Add truncated description if available
-          if (book.description) {
-            const maxDescLength = 120;
-            const truncatedDesc = book.description.length > maxDescLength 
-              ? book.description.substring(0, maxDescLength).trim() + '...'
-              : book.description;
-            tweetText += `${truncatedDesc}\n\n`;
-          }
-          
-          tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
-        } else {
-          // Text template: Full text format with emphasized link
-          tweetText = `📚 Nowość w ofercie!\n\n✨ ${book.title} ✨\n\n`;
-          
-          if (book.sale_price) {
-            tweetText += `💰 Promocyjna cena: ${book.sale_price} zł\n\n`;
-          }
-          
-          tweetText += `🛒 Sprawdź w księgarni:\n👉 ${book.product_url}\n\n`;
-          
-          tweetText += `#ksiazki #antyk #promocja #bestseller`;
+        if (book.sale_price) {
+          tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
         }
+        
+        // Add truncated description if available
+        if (book.description) {
+          const maxDescLength = 120;
+          const truncatedDesc = book.description.length > maxDescLength 
+            ? book.description.substring(0, maxDescLength).trim() + '...'
+            : book.description;
+          tweetText += `${truncatedDesc}\n\n`;
+        }
+        
+        tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
 
         console.log("Tweet to send:", tweetText);
 

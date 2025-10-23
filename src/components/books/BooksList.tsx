@@ -5,14 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, Layout, FileText, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Undo2 } from "lucide-react";
+import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Undo2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { BulkScheduleDialog } from "./BulkScheduleDialog";
 import { XPostPreviewDialog } from "./XPostPreviewDialog";
 import type { Tables } from "@/integrations/supabase/types";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 type SortColumn = "code" | "title" | "stock_status" | "sale_price" | "published";
 type SortDirection = "asc" | "desc";
 
@@ -223,30 +223,6 @@ export const BooksList = () => {
     });
   };
 
-  const updateTemplateMutation = useMutation({
-    mutationFn: async ({ bookId, templateType }: { bookId: string; templateType: string }) => {
-      const { error } = await supabase
-        .from("books")
-        .update({ template_type: templateType })
-        .eq("id", bookId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["books"] });
-      toast({
-        title: "Szablon zaktualizowany",
-        description: "Szablon posta został zmieniony.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Błąd",
-        description: `Nie udało się zmienić szablonu: ${error.message}`,
-      });
-    },
-  });
 
   const schedulePublishMutation = useMutation({
     mutationFn: async ({
@@ -490,7 +466,6 @@ export const BooksList = () => {
                     Tytuł
                     <SortIcon column="title" />
                   </TableHead>
-                  <TableHead>Szablon</TableHead>
                   <TableHead>Link</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 select-none"
@@ -522,35 +497,6 @@ export const BooksList = () => {
                 {books && books.length > 0 ? books.map(book => <TableRow key={book.id}>
                       <TableCell className="font-medium">{book.code}</TableCell>
                       <TableCell className="max-w-md truncate">{book.title}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={book.template_type || "text"}
-                          onValueChange={(value) =>
-                            updateTemplateMutation.mutate({
-                              bookId: book.id,
-                              templateType: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4" />
-                                Tekstowy
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="visual">
-                              <div className="flex items-center gap-2">
-                                <Layout className="w-4 h-4" />
-                                Wizualny
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
                       <TableCell>
                         {book.product_url ? (
                           <a 

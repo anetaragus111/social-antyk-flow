@@ -22,59 +22,22 @@ export const XPostPreviewDialog = ({
 }: XPostPreviewDialogProps) => {
   if (!book) return null;
 
-  const isVisualTemplate = book.template_type === "visual";
-
-  const renderTextTemplate = () => {
-    let tweetText = `📚 Nowość w ofercie!\n\n✨ ${book.title} ✨\n\n`;
-    
-    if (book.sale_price) {
-      tweetText += `💰 Promocyjna cena: ${book.sale_price} zł\n\n`;
-    }
-    
-    tweetText += `🛒 Sprawdź w księgarni:\n👉 ${book.product_url}\n\n`;
-    
-    tweetText += `#ksiazki #antyk #promocja #bestseller`;
-
-    return (
-      <div className="space-y-2">
-        <Card className="max-w-xl bg-card">
-          <CardContent className="p-6">
-            <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  const renderVisualTemplate = () => {
-    let tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
-    
-    if (book.sale_price) {
-      tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
-    }
-    
-    // Add truncated description if available
-    if (book.description) {
-      const maxDescLength = 120;
-      const truncatedDesc = book.description.length > maxDescLength 
-        ? book.description.substring(0, maxDescLength).trim() + '...'
-        : book.description;
-      tweetText += `${truncatedDesc}\n\n`;
-    }
-    
-    tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
-
-    return (
-      <div className="space-y-4">
-        <Card className="max-w-xl bg-card">
-          <CardContent className="p-6">
-            <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
-          </CardContent>
-        </Card>
-        <XPostPreview book={book} />
-      </div>
-    );
-  };
+  let tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
+  
+  if (book.sale_price) {
+    tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
+  }
+  
+  // Add truncated description if available
+  if (book.description) {
+    const maxDescLength = 120;
+    const truncatedDesc = book.description.length > maxDescLength 
+      ? book.description.substring(0, maxDescLength).trim() + '...'
+      : book.description;
+    tweetText += `${truncatedDesc}\n\n`;
+  }
+  
+  tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,11 +47,18 @@ export const XPostPreviewDialog = ({
             Podgląd posta na X
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Szablon: {isVisualTemplate ? "Wizualny" : "Tekstowy"}
+            Szablon wizualny
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-center py-4">
-          {isVisualTemplate ? renderVisualTemplate() : renderTextTemplate()}
+          <div className="space-y-4">
+            <Card className="max-w-xl bg-card">
+              <CardContent className="p-6">
+                <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
+              </CardContent>
+            </Card>
+            <XPostPreview book={book} />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
