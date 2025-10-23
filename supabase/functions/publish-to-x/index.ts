@@ -78,29 +78,42 @@ const corsHeaders = {
 const BASE_URL = "https://api.x.com/2";
 const UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
 
-async function testConnection(): Promise<any> {
+async function getLatestOAuth2AccessToken(supabaseClient: any): Promise<string | null> {
+  const { data, error } = await supabaseClient
+    .from('twitter_oauth_tokens')
+    .select('access_token, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Failed to fetch OAuth2 token:', error);
+    return null;
+  }
+  return data && data.length > 0 ? data[0].access_token : null;
+}
+
+async function testConnectionWithOAuth2(bearerToken: string): Promise<any> {
   const url = `${BASE_URL}/users/me`;
   const method = "GET";
-  const oauthHeader = generateOAuthHeader(method, url);
-  
-  console.log("=== Testing Twitter OAuth 1.0a Connection ===");
-  
+
+  console.log("=== Testing Twitter OAuth 2.0 Connection ===");
+
   const response = await fetch(url, {
-    method: method,
+    method,
     headers: {
-      Authorization: oauthHeader,
+      Authorization: `Bearer ${bearerToken}`,
       "Content-Type": "application/json",
     },
   });
-  
+
   const responseText = await response.text();
   console.log("Test Connection - Response Status:", response.status);
   console.log("Test Connection - Response Body:", responseText);
-  
+
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`);
   }
-  
+
   return JSON.parse(responseText);
 }
 
@@ -146,37 +159,39 @@ async function uploadMedia(imageUrl: string): Promise<string> {
   return result.media_id_string;
 }
 
-async function sendTweet(tweetText: string, mediaIds?: string[]): Promise<any> {
+async function sendTweet(tweetText: string, mediaIds?: string[], oauth2Token?: string): Promise<any> {
   const url = `${BASE_URL}/tweets`;
   const method = "POST";
-  
+
   const body: any = { text: tweetText };
   if (mediaIds && mediaIds.length > 0) {
     body.media = { media_ids: mediaIds };
   }
-  
-  const oauthHeader = generateOAuthHeader(method, url);
-  
-  console.log("Sending tweet with OAuth 1.0a...");
+
+  console.log("Sending tweet...", { via: oauth2Token ? 'OAuth2 Bearer' : 'OAuth1.0a' });
   console.log("Tweet body:", JSON.stringify(body));
-  
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (oauth2Token) {
+    headers.Authorization = `Bearer ${oauth2Token}`;
+  } else {
+    headers.Authorization = generateOAuthHeader(method, url);
+  }
+
   const response = await fetch(url, {
-    method: method,
-    headers: {
-      Authorization: oauthHeader,
-      "Content-Type": "application/json",
-    },
+    method,
+    headers,
     body: JSON.stringify(body),
   });
-  
+
   const responseText = await response.text();
   console.log("Tweet Response Status:", response.status);
   console.log("Tweet Response Body:", responseText);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to send tweet: ${response.status}, body: ${responseText}`);
   }
-  
+
   return JSON.parse(responseText);
 }
 
@@ -195,15 +210,21 @@ Deno.serve(async (req) => {
 
     const { bookId, bookIds, testConnection: shouldTestConnection } = await req.json();
     
+    // Fetch latest OAuth2 token once
+    const oauth2Token = await getLatestOAuth2AccessToken(supabaseClient);
+    
     // Test connection endpoint
     if (shouldTestConnection) {
-      console.log("Testing Twitter API connection...");
-      const result = await testConnection();
+      console.log("Testing Twitter API connection with OAuth2 token...");
+      if (!oauth2Token) {
+        throw new Error('Brak ważnego tokenu OAuth2. Zaloguj się ponownie.');
+      }
+      const result = await testConnectionWithOAuth2(oauth2Token);
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: "Connection successful! Your API keys are working.",
-          user: result.data 
+          user: result.data ?? result 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -286,7 +307,7 @@ Deno.serve(async (req) => {
         }
 
         // Send tweet
-        const tweetResponse = await sendTweet(tweetText, mediaIds);
+        const tweetResponse = await sendTweet(tweetText, mediaIds, oauth2Token ?? undefined);
         console.log("Tweet sent successfully:", tweetResponse);
 
         // Update book as published
