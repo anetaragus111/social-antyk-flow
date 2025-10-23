@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, Layout, FileText, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, Layout, FileText, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Undo2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ScheduleDialog } from "./ScheduleDialog";
@@ -377,6 +377,35 @@ export const BooksList = () => {
   const handleCancelAllScheduled = () => {
     cancelAllScheduledMutation.mutate();
   };
+
+  const unpublishMutation = useMutation({
+    mutationFn: async (bookId: string) => {
+      const { error } = await supabase
+        .from("books")
+        .update({ published: false })
+        .eq("id", bookId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+      toast({
+        title: "Cofnięto publikację",
+        description: "Status książki został zmieniony na nieopublikowaną"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się cofnąć publikacji",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleUnpublish = (bookId: string) => {
+    unpublishMutation.mutate(bookId);
+  };
   
   const migrateImagesMutation = useMutation({
     mutationFn: async () => {
@@ -559,12 +588,30 @@ export const BooksList = () => {
                         </Button>
                       </TableCell>
                       <TableCell className="text-right">
-                        {!book.published && <Button size="sm" variant="outline" onClick={() => handlePublishSingle(book.id)} disabled={publishingIds.has(book.id)}>
+                        {!book.published ? (
+                          <Button size="sm" variant="outline" onClick={() => handlePublishSingle(book.id)} disabled={publishingIds.has(book.id)}>
                             {publishingIds.has(book.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
                                 <Send className="mr-2 h-4 w-4" />
                                 Opublikuj
                               </>}
-                          </Button>}
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handleUnpublish(book.id)}
+                            disabled={unpublishMutation.isPending}
+                          >
+                            {unpublishMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Undo2 className="mr-2 h-4 w-4" />
+                                Cofnij
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </TableCell>
                      </TableRow>) : <TableRow>
                     <TableCell colSpan={10} className="text-center text-muted-foreground">
