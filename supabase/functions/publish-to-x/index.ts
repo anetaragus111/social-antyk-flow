@@ -78,10 +78,6 @@ const corsHeaders = {
 const BASE_URL = "https://api.x.com/2";
 const UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
 
-// Base URL for the application - used for Twitter Card preview links
-// In production, this should be set to your actual domain
-const APP_URL = Deno.env.get("APP_URL") || "https://gptengineer.app/projects/dmrfbokchkxjzslfzeps/preview";
-
 async function getLatestOAuth2AccessToken(supabaseClient: any): Promise<string | null> {
   const { data, error } = await supabaseClient
     .from('twitter_oauth_tokens')
@@ -374,18 +370,15 @@ Deno.serve(async (req) => {
         
         console.log(`Using ${isVisualTemplate ? 'visual' : 'text'} template for book ${id}`);
         
-        // Use BookPreview URL for Twitter Card support
-        const bookPreviewUrl = `${APP_URL}/book/${id}`;
-        
         if (isVisualTemplate) {
-          // Visual template: Short text with BookPreview link (Twitter will show card preview)
+          // Visual template: Short text with direct shop link
           tweetText = `📚 ${book.title}\n\n`;
           
           if (book.sale_price) {
             tweetText += `💰 ${book.sale_price} zł\n\n`;
           }
           
-          tweetText += `👉 Kup teraz:\n${bookPreviewUrl}`;
+          tweetText += `👉 Kup teraz:\n${book.product_url}`;
         } else {
           // Text template: Full text format with emphasized link
           tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
@@ -394,7 +387,7 @@ Deno.serve(async (req) => {
             tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
           }
           
-          tweetText += `🛒 Sprawdź w księgarni:\n👉 ${bookPreviewUrl}\n\n`;
+          tweetText += `🛒 Sprawdź w księgarni:\n👉 ${book.product_url}\n\n`;
           
           tweetText += `#ksiazki #antyk #promocja`;
         }

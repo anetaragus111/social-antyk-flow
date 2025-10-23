@@ -25,16 +25,13 @@ export const XPostPreviewDialog = ({
   const isVisualTemplate = book.template_type === "visual";
 
   const renderTextTemplate = () => {
-    // Use BookPreview URL instead of direct shop URL for Twitter Card support
-    const bookPreviewUrl = `${window.location.origin}/book/${book.id}`;
-    
     let tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
     
     if (book.sale_price) {
       tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
     }
     
-    tweetText += `🛒 Sprawdź w księgarni:\n👉 ${bookPreviewUrl}\n\n`;
+    tweetText += `🛒 Sprawdź w księgarni:\n👉 ${book.product_url}\n\n`;
     
     tweetText += `#ksiazki #antyk #promocja`;
 
@@ -45,23 +42,18 @@ export const XPostPreviewDialog = ({
             <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
           </CardContent>
         </Card>
-        <p className="text-xs text-muted-foreground text-center">
-          ℹ️ Link prowadzi do strony z podglądem, która przekierowuje do sklepu (lepszy podgląd na X/Twitter)
-        </p>
       </div>
     );
   };
 
   const renderVisualTemplate = () => {
-    const bookPreviewUrl = `${window.location.origin}/book/${book.id}`;
-    
     let tweetText = `📚 ${book.title}\n\n`;
     
     if (book.sale_price) {
       tweetText += `💰 ${book.sale_price} zł\n\n`;
     }
     
-    tweetText += `👉 Kup teraz:\n${bookPreviewUrl}`;
+    tweetText += `👉 Kup teraz:\n${book.product_url}`;
 
     return (
       <div className="space-y-4">
@@ -70,9 +62,6 @@ export const XPostPreviewDialog = ({
             <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
           </CardContent>
         </Card>
-        <p className="text-xs text-muted-foreground text-center mb-2">
-          ℹ️ Link prowadzi do strony z podglądem, która przekierowuje do sklepu (lepszy podgląd na X/Twitter)
-        </p>
         <XPostPreview book={book} />
       </div>
     );
