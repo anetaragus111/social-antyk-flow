@@ -140,20 +140,28 @@ async function verifyOAuth1(): Promise<{ ok: boolean; user?: any; status?: numbe
   }
 }
 
-async function uploadMedia(imageUrl: string): Promise<string> {
-  console.log("Downloading image from:", imageUrl);
-  
-  // Download image
-  const imageResponse = await fetch(imageUrl);
-  if (!imageResponse.ok) {
-    throw new Error(`Failed to download image: ${imageResponse.status}`);
-  }
+async function uploadMedia(imageUrl?: string, opts?: { arrayBuffer?: ArrayBuffer; contentType?: string }): Promise<string> {
+  const hasBuffer = !!opts?.arrayBuffer;
+  let contentType = opts?.contentType || "image/jpeg";
+  let imageArrayBuffer: ArrayBuffer;
 
-  const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
-  const imageArrayBuffer = await imageResponse.arrayBuffer();
-  const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageArrayBuffer)));
-  console.log("Image downloaded, size:", imageArrayBuffer.byteLength, "bytes, type:", contentType);
+  if (hasBuffer) {
+    imageArrayBuffer = opts!.arrayBuffer!;
+    console.log("Using provided image buffer, size:", imageArrayBuffer.byteLength, "bytes, type:", contentType);
+  } else {
+    if (!imageUrl) throw new Error("No image source provided");
+    console.log("Downloading image from:", imageUrl);
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download image: ${imageResponse.status}`);
+    }
+    contentType = imageResponse.headers.get("content-type") || contentType;
+    imageArrayBuffer = await imageResponse.arrayBuffer();
+    console.log("Image downloaded, size:", imageArrayBuffer.byteLength, "bytes, type:", contentType);
+  }
   
+  const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageArrayBuffer)));
+
   // First try simple upload with media_data
   try {
     const method = "POST";
@@ -295,7 +303,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { bookId, bookIds, testConnection: shouldTestConnection } = await req.json();
+    const { bookId, bookIds, testConnection: shouldTestConnection, storageBucket, storagePath } = await req.json();
     
     // Fetch latest OAuth2 token once
     const oauth2Token = await getLatestOAuth2AccessToken(supabaseClient);
@@ -390,17 +398,39 @@ Deno.serve(async (req) => {
 
         console.log("Tweet to send:", tweetText);
 
-        // Upload media if image_url exists
+        // Upload media: prefer Supabase Storage override when provided, else use book.image_url
         let mediaIds: string[] | undefined = undefined;
-        if (book.image_url) {
-          try {
+        try {
+          if (storageBucket && storagePath) {
+            console.log("Uploading media from Supabase Storage...", { storageBucket, storagePath });
+            const { data: storageBlob, error: storageError } = await supabaseClient.storage
+              .from(storageBucket)
+              .download(storagePath);
+            if (storageError) throw storageError;
+            const arrayBuffer = await storageBlob.arrayBuffer();
+            const inferType = (p: string) => {
+              const ext = p.split('.').pop()?.toLowerCase();
+              switch (ext) {
+                case 'png': return 'image/png';
+                case 'webp': return 'image/webp';
+                case 'gif': return 'image/gif';
+                case 'jpg':
+                case 'jpeg':
+                default: return 'image/jpeg';
+              }
+            };
+            const contentType = storageBlob.type || inferType(storagePath);
+            const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
+            mediaIds = [mediaId];
+            console.log("Media uploaded successfully from storage, media_id:", mediaId);
+          } else if (book.image_url) {
             console.log("Uploading media from image_url...");
             const mediaId = await uploadMedia(book.image_url);
             mediaIds = [mediaId];
             console.log("Media uploaded successfully, media_id:", mediaId);
-          } catch (error) {
-            console.error("Failed to upload media, continuing without image:", error);
           }
+        } catch (error) {
+          console.error("Failed to upload media, continuing without image:", error);
         }
 
         // Send tweet

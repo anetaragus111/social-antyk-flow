@@ -33,6 +33,8 @@ export const BooksList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const [pageInput, setPageInput] = useState<string>("1");
+  const [storageBucket, setStorageBucket] = useState<string>("");
+  const [storagePath, setStoragePath] = useState<string>("");
   useEffect(() => { setPageInput(String(currentPage)); }, [currentPage]);
   const {
     data: booksData,
@@ -154,7 +156,8 @@ export const BooksList = () => {
       } = await supabase.functions.invoke("publish-to-x", {
         body: {
           bookId,
-          bookIds
+          bookIds,
+          ...(storageBucket && storagePath ? { storageBucket, storagePath } as any : {})
         }
       });
       if (error) throw error;
@@ -377,6 +380,18 @@ export const BooksList = () => {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Lista książek</CardTitle>
         <div className="flex gap-2">
+          <Input
+            placeholder="Bucket (test)"
+            value={storageBucket}
+            onChange={(e) => setStorageBucket(e.target.value)}
+            className="w-40 h-8"
+          />
+          <Input
+            placeholder="Ścieżka pliku (test)"
+            value={storagePath}
+            onChange={(e) => setStoragePath(e.target.value)}
+            className="w-64 h-8"
+          />
           <Button variant="outline" onClick={() => authorizeTwitterMutation.mutate()} disabled={authorizeTwitterMutation.isPending} size="sm">
             {authorizeTwitterMutation.isPending ? "Przekierowywanie..." : "🔑 Zaloguj"}
           </Button>
