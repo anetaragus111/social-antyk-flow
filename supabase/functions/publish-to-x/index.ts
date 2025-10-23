@@ -168,15 +168,15 @@ async function sendTweet(tweetText: string, mediaIds?: string[], oauth2Token?: s
     body.media = { media_ids: mediaIds };
   }
 
-  console.log("Sending tweet...", { via: oauth2Token ? 'OAuth2 Bearer' : 'OAuth1.0a' });
+  const useOAuth1 = (mediaIds && mediaIds.length > 0) || !oauth2Token;
+  console.log("Sending tweet...", { via: useOAuth1 ? 'OAuth1.0a' : 'OAuth2 Bearer' });
   console.log("Tweet body:", JSON.stringify(body));
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (oauth2Token) {
-    headers.Authorization = `Bearer ${oauth2Token}`;
-  } else {
-    headers.Authorization = generateOAuthHeader(method, url);
-  }
+  headers.Authorization = useOAuth1
+    ? generateOAuthHeader(method, url)
+    : `Bearer ${oauth2Token}`;
+
 
   const response = await fetch(url, {
     method,
@@ -294,15 +294,14 @@ Deno.serve(async (req) => {
 
         // Upload media if image_url exists
         let mediaIds: string[] | undefined = undefined;
-        if (book.image_url && isVisualTemplate) {
+        if (book.image_url) {
           try {
-            console.log("Uploading media for visual template...");
+            console.log("Uploading media from image_url...");
             const mediaId = await uploadMedia(book.image_url);
             mediaIds = [mediaId];
             console.log("Media uploaded successfully, media_id:", mediaId);
           } catch (error) {
             console.error("Failed to upload media, continuing without image:", error);
-            // Continue without media if upload fails
           }
         }
 

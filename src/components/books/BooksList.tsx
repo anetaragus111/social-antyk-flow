@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, Layout, FileText, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { BulkScheduleDialog } from "./BulkScheduleDialog";
 import { XPostPreviewDialog } from "./XPostPreviewDialog";
@@ -31,6 +32,8 @@ export const BooksList = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+  const [pageInput, setPageInput] = useState<string>("1");
+  useEffect(() => { setPageInput(String(currentPage)); }, [currentPage]);
   const {
     data: booksData,
     isLoading
@@ -531,7 +534,7 @@ export const BooksList = () => {
                 <div className="text-sm text-muted-foreground">
                   Strona {currentPage} z {totalPages} ({totalCount} książek)
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Button
                     variant="outline"
                     size="sm"
@@ -541,6 +544,33 @@ export const BooksList = () => {
                     <ChevronLeft className="h-4 w-4 mr-1" />
                     Poprzednia
                   </Button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Idź do:</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={pageInput}
+                      onChange={(e) => setPageInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const n = Math.min(totalPages, Math.max(1, parseInt(pageInput || '1', 10) || 1));
+                          setCurrentPage(n);
+                        }
+                      }}
+                      className="w-20 h-8"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const n = Math.min(totalPages, Math.max(1, parseInt(pageInput || '1', 10) || 1));
+                        setCurrentPage(n);
+                      }}
+                    >
+                      Idź
+                    </Button>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
