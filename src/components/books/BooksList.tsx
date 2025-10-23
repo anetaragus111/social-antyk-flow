@@ -33,21 +33,27 @@ export const BooksList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const [pageInput, setPageInput] = useState<string>("1");
-  const [storageBucket, setStorageBucket] = useState<string>("");
-  const [storagePath, setStoragePath] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   useEffect(() => { setPageInput(String(currentPage)); }, [currentPage]);
   const {
     data: booksData,
     isLoading
   } = useQuery({
-    queryKey: ["books", sortColumn, sortDirection, currentPage],
+    queryKey: ["books", sortColumn, sortDirection, currentPage, searchQuery],
     queryFn: async () => {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       
-      const { data, error, count } = await supabase
+      let query = supabase
         .from("books")
-        .select("*", { count: 'exact' })
+        .select("*", { count: 'exact' });
+
+      // Add search filter if query is not empty
+      if (searchQuery.trim()) {
+        query = query.or(`code.ilike.%${searchQuery}%,title.ilike.%${searchQuery}%,sale_price.eq.${parseFloat(searchQuery) || 0}`);
+      }
+
+      const { data, error, count } = await query
         .order(sortColumn, { ascending: sortDirection === "asc" })
         .range(from, to);
       
@@ -156,8 +162,7 @@ export const BooksList = () => {
       } = await supabase.functions.invoke("publish-to-x", {
         body: {
           bookId,
-          bookIds,
-          ...(storageBucket && storagePath ? { storageBucket, storagePath } as any : {})
+          bookIds
         }
       });
       if (error) throw error;
@@ -404,15 +409,9 @@ export const BooksList = () => {
         <CardTitle>Lista książek</CardTitle>
         <div className="flex gap-2">
           <Input
-            placeholder="Bucket (test)"
-            value={storageBucket}
-            onChange={(e) => setStorageBucket(e.target.value)}
-            className="w-40 h-8"
-          />
-          <Input
-            placeholder="Ścieżka pliku (test)"
-            value={storagePath}
-            onChange={(e) => setStoragePath(e.target.value)}
+            placeholder="Szukaj po kodzie, tytule lub cenie..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-64 h-8"
           />
           <Button variant="outline" onClick={() => authorizeTwitterMutation.mutate()} disabled={authorizeTwitterMutation.isPending} size="sm">
