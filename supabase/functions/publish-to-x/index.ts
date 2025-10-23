@@ -371,25 +371,34 @@ Deno.serve(async (req) => {
         console.log(`Using ${isVisualTemplate ? 'visual' : 'text'} template for book ${id}`);
         
         if (isVisualTemplate) {
-          // Visual template: Short text with direct shop link
-          tweetText = `📚 ${book.title}\n\n`;
+          // Visual template: Attractive sales text with description
+          tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
           
           if (book.sale_price) {
-            tweetText += `💰 ${book.sale_price} zł\n\n`;
+            tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
           }
           
-          tweetText += `👉 Kup teraz:\n${book.product_url}`;
+          // Add truncated description if available
+          if (book.description) {
+            const maxDescLength = 120;
+            const truncatedDesc = book.description.length > maxDescLength 
+              ? book.description.substring(0, maxDescLength).trim() + '...'
+              : book.description;
+            tweetText += `${truncatedDesc}\n\n`;
+          }
+          
+          tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
         } else {
           // Text template: Full text format with emphasized link
-          tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
+          tweetText = `📚 Nowość w ofercie!\n\n✨ ${book.title} ✨\n\n`;
           
           if (book.sale_price) {
-            tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
+            tweetText += `💰 Promocyjna cena: ${book.sale_price} zł\n\n`;
           }
           
           tweetText += `🛒 Sprawdź w księgarni:\n👉 ${book.product_url}\n\n`;
           
-          tweetText += `#ksiazki #antyk #promocja`;
+          tweetText += `#ksiazki #antyk #promocja #bestseller`;
         }
 
         console.log("Tweet to send:", tweetText);

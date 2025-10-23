@@ -19,6 +19,7 @@ export type Database = {
           auto_publish_enabled: boolean | null
           code: string
           created_at: string
+          description: string | null
           id: string
           image_url: string | null
           product_url: string | null
@@ -37,6 +38,7 @@ export type Database = {
           auto_publish_enabled?: boolean | null
           code: string
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
           product_url?: string | null
@@ -55,6 +57,7 @@ export type Database = {
           auto_publish_enabled?: boolean | null
           code?: string
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
           product_url?: string | null

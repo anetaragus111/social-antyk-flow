@@ -25,15 +25,15 @@ export const XPostPreviewDialog = ({
   const isVisualTemplate = book.template_type === "visual";
 
   const renderTextTemplate = () => {
-    let tweetText = `📚 Nowość w ofercie!\n\n${book.title}\n\n`;
+    let tweetText = `📚 Nowość w ofercie!\n\n✨ ${book.title} ✨\n\n`;
     
     if (book.sale_price) {
-      tweetText += `💰 Cena: ${book.sale_price} zł\n\n`;
+      tweetText += `💰 Promocyjna cena: ${book.sale_price} zł\n\n`;
     }
     
     tweetText += `🛒 Sprawdź w księgarni:\n👉 ${book.product_url}\n\n`;
     
-    tweetText += `#ksiazki #antyk #promocja`;
+    tweetText += `#ksiazki #antyk #promocja #bestseller`;
 
     return (
       <div className="space-y-2">
@@ -47,13 +47,22 @@ export const XPostPreviewDialog = ({
   };
 
   const renderVisualTemplate = () => {
-    let tweetText = `📚 ${book.title}\n\n`;
+    let tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
     
     if (book.sale_price) {
-      tweetText += `💰 ${book.sale_price} zł\n\n`;
+      tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
     }
     
-    tweetText += `👉 Kup teraz:\n${book.product_url}`;
+    // Add truncated description if available
+    if (book.description) {
+      const maxDescLength = 120;
+      const truncatedDesc = book.description.length > maxDescLength 
+        ? book.description.substring(0, maxDescLength).trim() + '...'
+        : book.description;
+      tweetText += `${truncatedDesc}\n\n`;
+    }
+    
+    tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
 
     return (
       <div className="space-y-4">
