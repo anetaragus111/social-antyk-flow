@@ -70,7 +70,12 @@ Wygeneruj TYLKO tekst posta, bez żadnych dodatkowych komentarzy.`;
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0].message.content.trim();
+    let generatedText = data.choices[0].message.content.trim();
+    
+    // Replace [link] placeholder with actual product URL
+    if (bookData.product_url) {
+      generatedText = generatedText.replace(/\[link\]/g, bookData.product_url);
+    }
 
     console.log('Generated sales text:', generatedText);
 

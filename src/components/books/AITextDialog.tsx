@@ -43,6 +43,7 @@ export const AITextDialog = ({
             sale_price: book.sale_price,
             description: book.description,
             stock_status: book.stock_status,
+            product_url: book.product_url,
           },
         },
       });
