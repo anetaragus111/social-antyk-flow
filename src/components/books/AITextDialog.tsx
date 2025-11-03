@@ -38,7 +38,6 @@ export const AITextDialog = ({
       const { data, error } = await supabase.functions.invoke("generate-sales-text", {
         body: {
           bookData: {
-            id: book.id,
             title: book.title,
             code: book.code,
             sale_price: book.sale_price,

@@ -12,9 +12,6 @@ verify_jwt = false
 [functions.publish-to-x]
 verify_jwt = false
 
-[functions.r]
-verify_jwt = false
-
 [functions.twitter-oauth-start]
 verify_jwt = false
 

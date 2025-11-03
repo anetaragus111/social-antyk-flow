@@ -22,7 +22,6 @@ const App = () => (
           <Route path="/twitter-callback" element={<TwitterCallback />} />
           <Route path="/book/:id" element={<BookPreview />} />
           <Route path="/book/:id/redirect" element={<BookRedirect />} />
-          <Route path="/b/:id" element={<BookRedirect />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

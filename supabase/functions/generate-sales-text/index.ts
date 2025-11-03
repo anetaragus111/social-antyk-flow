@@ -77,16 +77,12 @@ Wygeneruj TYLKO tekst posta, bez żadnych dodatkowych komentarzy ani linków.`;
     const data = await response.json();
     const generatedText = data.choices[0].message.content.trim();
 
-    // Create short URL using Supabase edge function redirect
-    const shortUrl = `https://dmrfbokchkxjzslfzeps.supabase.co/functions/v1/r/${bookData.code}`;
-
     console.log('Generated sales text:', generatedText);
-    console.log('Short URL:', shortUrl);
 
     return new Response(
       JSON.stringify({ 
         salesText: generatedText,
-        productUrl: shortUrl 
+        productUrl: bookData.product_url 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
