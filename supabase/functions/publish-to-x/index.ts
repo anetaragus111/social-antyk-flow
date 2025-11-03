@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { bookId, bookIds, testConnection: shouldTestConnection, storageBucket, storagePath } = await req.json();
+    const { bookId, bookIds, testConnection: shouldTestConnection, storageBucket, storagePath, customText } = await req.json();
     
     // Fetch latest OAuth2 token once
     const oauth2Token = await getLatestOAuth2AccessToken(supabaseClient);
@@ -364,23 +364,31 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Format tweet using visual template
-        let tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
-        
-        if (book.sale_price) {
-          tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
+        // Format tweet using custom text or visual template
+        let tweetText;
+        if (customText) {
+          // Use custom AI-generated text
+          tweetText = customText;
+          console.log("Using custom AI-generated text for tweet");
+        } else {
+          // Use default visual template
+          tweetText = `✨ LIMITOWANA OFERTA ✨\n\n📚 ${book.title}\n\n`;
+          
+          if (book.sale_price) {
+            tweetText += `💰 Tylko ${book.sale_price} zł\n\n`;
+          }
+          
+          // Add truncated description if available
+          if (book.description) {
+            const maxDescLength = 120;
+            const truncatedDesc = book.description.length > maxDescLength 
+              ? book.description.substring(0, maxDescLength).trim() + '...'
+              : book.description;
+            tweetText += `${truncatedDesc}\n\n`;
+          }
+          
+          tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
         }
-        
-        // Add truncated description if available
-        if (book.description) {
-          const maxDescLength = 120;
-          const truncatedDesc = book.description.length > maxDescLength 
-            ? book.description.substring(0, maxDescLength).trim() + '...'
-            : book.description;
-          tweetText += `${truncatedDesc}\n\n`;
-        }
-        
-        tweetText += `🔥 Kup teraz:\n👉 ${book.product_url}`;
 
         console.log("Tweet to send:", tweetText);
 

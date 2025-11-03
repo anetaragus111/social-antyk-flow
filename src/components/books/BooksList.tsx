@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Undo2 } from "lucide-react";
+import { Loader2, Send, Calendar, Clock, ExternalLink, Eye, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Undo2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { BulkScheduleDialog } from "./BulkScheduleDialog";
 import { XPostPreviewDialog } from "./XPostPreviewDialog";
+import { AITextDialog } from "./AITextDialog";
 import type { Tables } from "@/integrations/supabase/types";
 
 type SortColumn = "code" | "title" | "stock_status" | "sale_price" | "published";
@@ -28,6 +29,8 @@ export const BooksList = () => {
   }>({});
   const [previewBook, setPreviewBook] = useState<Tables<"books"> | null>(null);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [aiTextBook, setAiTextBook] = useState<Tables<"books"> | null>(null);
+  const [aiTextDialogOpen, setAiTextDialogOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("code");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,10 +154,12 @@ export const BooksList = () => {
   const publishMutation = useMutation({
     mutationFn: async ({
       bookId,
-      bookIds
+      bookIds,
+      customText
     }: {
       bookId?: string;
       bookIds?: string[];
+      customText?: string;
     }) => {
       const {
         data,
@@ -162,7 +167,8 @@ export const BooksList = () => {
       } = await supabase.functions.invoke("publish-to-x", {
         body: {
           bookId,
-          bookIds
+          bookIds,
+          customText
         }
       });
       if (error) throw error;
@@ -201,10 +207,11 @@ export const BooksList = () => {
       setPublishingIds(new Set());
     }
   });
-  const handlePublishSingle = async (bookId: string) => {
+  const handlePublishSingle = async (bookId: string, customText?: string) => {
     setPublishingIds(prev => new Set(prev).add(bookId));
     publishMutation.mutate({
-      bookId
+      bookId,
+      customText
     });
   };
   const handlePublishAll = async () => {
@@ -590,12 +597,26 @@ export const BooksList = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         {!book.published ? (
-                          <Button size="sm" variant="outline" onClick={() => handlePublishSingle(book.id)} disabled={publishingIds.has(book.id)}>
-                            {publishingIds.has(book.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
-                                <Send className="mr-2 h-4 w-4" />
-                                Opublikuj
-                              </>}
-                          </Button>
+                          <div className="flex gap-2 justify-end">
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              onClick={() => {
+                                setAiTextBook(book);
+                                setAiTextDialogOpen(true);
+                              }}
+                              disabled={publishingIds.has(book.id)}
+                            >
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              AI Tekst
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handlePublishSingle(book.id)} disabled={publishingIds.has(book.id)}>
+                              {publishingIds.has(book.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
+                                  <Send className="mr-2 h-4 w-4" />
+                                  Opublikuj
+                                </>}
+                            </Button>
+                          </div>
                         ) : (
                           <Button 
                             size="sm" 
@@ -682,6 +703,12 @@ export const BooksList = () => {
         book={previewBook}
         open={previewDialogOpen}
         onOpenChange={setPreviewDialogOpen}
+      />
+      <AITextDialog
+        book={aiTextBook}
+        open={aiTextDialogOpen}
+        onOpenChange={setAiTextDialogOpen}
+        onPublish={handlePublishSingle}
       />
     </Card>;
 };
