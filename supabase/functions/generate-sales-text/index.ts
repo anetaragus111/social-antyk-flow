@@ -77,8 +77,8 @@ Wygeneruj TYLKO tekst posta, bez żadnych dodatkowych komentarzy ani linków.`;
     const data = await response.json();
     const generatedText = data.choices[0].message.content.trim();
 
-    // Create short URL using book ID
-    const shortUrl = `https://c4157687-6f8a-4875-aa6d-ac0c6ad3fb78.lovableproject.com/b/${bookData.id}`;
+    // Create short URL using book code (much shorter than UUID)
+    const shortUrl = `https://c4157687-6f8a-4875-aa6d-ac0c6ad3fb78.lovableproject.com/b/${bookData.code}`;
 
     console.log('Generated sales text:', generatedText);
     console.log('Short URL:', shortUrl);

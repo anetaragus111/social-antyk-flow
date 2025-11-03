@@ -11,11 +11,12 @@ export default function BookRedirect() {
     const redirectToBook = async () => {
       if (!id) return;
 
+      // Try to find book by code first (short URL), fallback to UUID
       const { data: book } = await supabase
         .from("books")
         .select("product_url")
-        .eq("id", id)
-        .single();
+        .or(`code.eq.${id},id.eq.${id}`)
+        .maybeSingle();
 
       if (book?.product_url) {
         window.location.href = book.product_url;
