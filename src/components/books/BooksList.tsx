@@ -269,7 +269,15 @@ export const BooksList = () => {
     }: {
       intervalMinutes: number;
     }) => {
-      const unpublishedBooks = books?.filter(book => !book.published) || [];
+      // Fetch ALL unpublished books from database
+      const { data: allBooks, error: fetchError } = await supabase
+        .from("books")
+        .select("*")
+        .eq("published", false);
+
+      if (fetchError) throw fetchError;
+
+      const unpublishedBooks = allBooks || [];
 
       // Schedule each book with increasing time intervals
       const updates = unpublishedBooks.map((book, index) => {
@@ -291,6 +299,7 @@ export const BooksList = () => {
       queryClient.invalidateQueries({
         queryKey: ["books"]
       });
+      queryClient.invalidateQueries({ queryKey: ["books-counts"] });
       toast({
         title: "✅ Zaplanowano publikacje",
         description: `${count} książek zostanie opublikowanych automatycznie`
@@ -318,9 +327,17 @@ export const BooksList = () => {
   };
   const cancelAllScheduledMutation = useMutation({
     mutationFn: async () => {
-      const scheduledBooks = books?.filter(book => 
-        book.scheduled_publish_at && book.auto_publish_enabled && !book.published
-      ) || [];
+      // Fetch ALL scheduled books from database
+      const { data: allScheduledBooks, error: fetchError } = await supabase
+        .from("books")
+        .select("*")
+        .eq("published", false)
+        .eq("auto_publish_enabled", true)
+        .not("scheduled_publish_at", "is", null);
+
+      if (fetchError) throw fetchError;
+
+      const scheduledBooks = allScheduledBooks || [];
 
       const updates = scheduledBooks.map(book =>
         supabase
@@ -341,6 +358,7 @@ export const BooksList = () => {
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["books"] });
+      queryClient.invalidateQueries({ queryKey: ["books-counts"] });
       toast({
         title: "✅ Anulowano publikacje",
         description: `Anulowano ${count} zaplanowanych publikacji`
@@ -481,10 +499,23 @@ export const BooksList = () => {
     },
   });
   
-  const unpublishedCount = books?.filter(book => !book.published).length || 0;
-  const scheduledCount = books?.filter(book => 
-    book.scheduled_publish_at && book.auto_publish_enabled && !book.published
-  ).length || 0;
+  // Fetch counts from database for accurate numbers across all pages
+  const { data: countsData } = useQuery({
+    queryKey: ["books-counts"],
+    queryFn: async () => {
+      const [unpublishedResult, scheduledResult] = await Promise.all([
+        supabase.from("books").select("id", { count: "exact", head: true }).eq("published", false),
+        supabase.from("books").select("id", { count: "exact", head: true }).eq("published", false).eq("auto_publish_enabled", true).not("scheduled_publish_at", "is", null)
+      ]);
+      return {
+        unpublished: unpublishedResult.count || 0,
+        scheduled: scheduledResult.count || 0
+      };
+    }
+  });
+
+  const unpublishedCount = countsData?.unpublished || 0;
+  const scheduledCount = countsData?.scheduled || 0;
   return <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Lista książek</CardTitle>
