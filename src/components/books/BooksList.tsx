@@ -360,7 +360,16 @@ export const BooksList = () => {
 
   const generateAllAITextsMutation = useMutation({
     mutationFn: async () => {
-      const unpublishedBooks = books?.filter(book => !book.published && !book.ai_generated_text) || [];
+      // Fetch ALL unpublished books from database without ai_generated_text
+      const { data: allBooks, error: fetchError } = await supabase
+        .from("books")
+        .select("*")
+        .eq("published", false)
+        .is("ai_generated_text", null);
+
+      if (fetchError) throw fetchError;
+
+      const unpublishedBooks = allBooks || [];
       
       if (unpublishedBooks.length === 0) {
         throw new Error("Brak książek do wygenerowania tekstów");
