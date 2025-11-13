@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { XPostPreview } from "./XPostPreview";
 import type { Tables } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,8 +42,8 @@ export const XPostPreviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-background/95 backdrop-blur-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] bg-background/95 backdrop-blur-lg p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             Podgląd posta na X
           </DialogTitle>
@@ -50,16 +51,18 @@ export const XPostPreviewDialog = ({
             Szablon wizualny
           </DialogDescription>
         </DialogHeader>
-        <div className="flex justify-center py-4">
-          <div className="space-y-4">
-            <Card className="max-w-xl bg-card">
-              <CardContent className="p-6">
-                <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
-              </CardContent>
-            </Card>
-            <XPostPreview book={book} />
+        <ScrollArea className="h-full max-h-[calc(90vh-120px)] px-6 pb-6">
+          <div className="flex justify-center py-4">
+            <div className="space-y-4">
+              <Card className="max-w-xl bg-card">
+                <CardContent className="p-6">
+                  <pre className="whitespace-pre-wrap font-sans text-card-foreground">{tweetText}</pre>
+                </CardContent>
+              </Card>
+              <XPostPreview book={book} />
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
