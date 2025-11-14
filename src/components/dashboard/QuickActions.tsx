@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Upload, Calendar, Settings, RefreshCw, Download, Sparkles, Twitter, Facebook, Instagram, Youtube, Linkedin } from "lucide-react";
+import { Plus, Upload, Calendar, Settings, RefreshCw, Download, Sparkles } from "lucide-react";
 import { ImportCSVDialog } from "@/components/books/ImportCSVDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getAllPlatforms } from "@/config/platforms";
 
 export const QuickActions = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -48,38 +49,8 @@ export const QuickActions = () => {
     }
   });
 
-  const platformActions = [
-    {
-      icon: Twitter,
-      label: "X (Twitter)",
-      color: "text-[#1DA1F2]",
-      path: "/platforms/x"
-    },
-    {
-      icon: Facebook,
-      label: "Facebook",
-      color: "text-[#1877F2]",
-      path: "/platforms/facebook"
-    },
-    {
-      icon: Instagram,
-      label: "Instagram",
-      color: "text-[#E4405F]",
-      path: "/platforms/instagram"
-    },
-    {
-      icon: Youtube,
-      label: "YouTube",
-      color: "text-[#FF0000]",
-      path: "/platforms/youtube"
-    },
-    {
-      icon: Linkedin,
-      label: "LinkedIn",
-      color: "text-[#0A66C2]",
-      path: "/platforms/linkedin"
-    }
-  ];
+  // Get all platforms from configuration
+  const platforms = getAllPlatforms();
 
   const actions = [
     {
@@ -137,18 +108,20 @@ export const QuickActions = () => {
       {/* Platform Selection */}
       <Card className="p-6 bg-gradient-card border-border/50 shadow-card">
         <h2 className="text-xl font-semibold mb-6">Platformy społecznościowe</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {platformActions.map((platform) => {
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 max-h-[500px] overflow-y-auto">
+          {platforms.map((platform) => {
             const Icon = platform.icon;
             return (
               <Button
-                key={platform.path}
+                key={platform.id}
                 variant="outline"
                 className="h-auto flex-col items-center justify-center p-6 space-y-3 hover:shadow-glow transition-all duration-300 hover:border-primary/50"
                 onClick={() => navigate(platform.path)}
               >
-                <Icon className={`h-10 w-10 ${platform.color}`} />
-                <span className="font-semibold text-base">{platform.label}</span>
+                <div className={`p-3 rounded-lg bg-gradient-to-br ${platform.gradientFrom} ${platform.gradientTo}`}>
+                  <Icon className={`h-8 w-8 ${platform.color}`} />
+                </div>
+                <span className="font-semibold text-sm text-center">{platform.name}</span>
               </Button>
             );
           })}
