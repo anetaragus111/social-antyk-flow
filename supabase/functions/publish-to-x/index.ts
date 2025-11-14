@@ -474,22 +474,73 @@ Deno.serve(async (req) => {
       } catch (error: any) {
         console.error(`Error publishing campaign post ${campaignPostId}:`, error);
         
-        // Mark post as failed
-        await supabaseClient
-          .from('campaign_posts')
-          .update({ status: 'failed' })
-          .eq('id', campaignPostId);
+        // Check if it's a rate limit error (429)
+        const isRateLimitError = error.message?.includes('429') || error.message?.includes('Too Many Requests');
         
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: error.message 
-          }),
-          { 
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+        if (isRateLimitError) {
+          // Get current retry count
+          const { data: currentPost } = await supabaseClient
+            .from('campaign_posts')
+            .select('retry_count')
+            .eq('id', campaignPostId)
+            .single();
+          
+          const retryCount = (currentPost?.retry_count || 0) + 1;
+          
+          // Calculate next retry time: 15, 30, 60 minutes
+          const retryDelays = [15, 30, 60];
+          const delayMinutes = retryDelays[Math.min(retryCount - 1, retryDelays.length - 1)];
+          const nextRetryAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+          
+          // Update with rate limit info
+          await supabaseClient
+            .from('campaign_posts')
+            .update({ 
+              status: 'rate_limited',
+              error_code: '429',
+              error_message: `Rate limit osiągnięty. Automatyczne ponowienie za ${delayMinutes} minut.`,
+              retry_count: retryCount,
+              next_retry_at: nextRetryAt
+            })
+            .eq('id', campaignPostId);
+          
+          console.log(`Rate limited. Retry ${retryCount} scheduled for: ${nextRetryAt}`);
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'rate_limit',
+              retry_count: retryCount,
+              next_retry_at: nextRetryAt,
+              message: `Rate limit osiągnięty. Automatyczne ponowienie za ${delayMinutes} minut.`
+            }),
+            { 
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        } else {
+          // Mark post as failed for other errors
+          await supabaseClient
+            .from('campaign_posts')
+            .update({ 
+              status: 'failed',
+              error_code: 'unknown',
+              error_message: error.message
+            })
+            .eq('id', campaignPostId);
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: error.message 
+            }),
+            { 
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
       }
     }
 

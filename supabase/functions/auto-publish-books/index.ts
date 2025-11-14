@@ -65,15 +65,16 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${contentToPublish?.length || 0} book contents ready to publish`);
 
-    // Get campaign posts that are ready to be published
+    // Get campaign posts that are ready to be published (scheduled OR rate_limited with retry time passed)
+    const now = new Date().toISOString();
     const { data: campaignPostsToPublish, error: campaignFetchError } = await supabase
       .from('campaign_posts')
       .select(`
         *,
         book:books(id, code, title, image_url, sale_price, promotional_price)
       `)
-      .eq('status', 'scheduled')
-      .lte('scheduled_at', new Date().toISOString())
+      .lte('scheduled_at', now)
+      .or(`status.eq.scheduled,and(status.eq.rate_limited,next_retry_at.lte.${now})`)
       .order('scheduled_at', { ascending: true });
 
     if (campaignFetchError) {
