@@ -282,7 +282,9 @@ async function sendTweetWithRetry(
           continue;
         } else {
           console.error('Max retries reached for rate limit error');
-          throw new Error(`Twitter rate limit exceeded. Please wait a few minutes before trying again.`);
+          const error = new Error(`Twitter rate limit exceeded (429). Please wait a few minutes before trying again.`);
+          (error as any).statusCode = 429;
+          throw error;
         }
       }
       
@@ -475,7 +477,10 @@ Deno.serve(async (req) => {
         console.error(`Error publishing campaign post ${campaignPostId}:`, error);
         
         // Check if it's a rate limit error (429)
-        const isRateLimitError = error.message?.includes('429') || error.message?.includes('Too Many Requests');
+        const isRateLimitError = error.statusCode === 429 || 
+          error.message?.includes('429') || 
+          error.message?.includes('Too Many Requests') ||
+          error.message?.includes('rate limit');
         
         if (isRateLimitError) {
           // Get current retry count
