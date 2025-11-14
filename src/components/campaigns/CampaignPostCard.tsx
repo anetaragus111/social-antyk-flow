@@ -185,7 +185,7 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
           {getTypeBadge()}
           {getStatusBadge()}
           {/* Subtle retry indicator */}
-          {(post.retry_count && post.retry_count > 0) && (
+          {post.retry_count > 0 && (
             <Badge variant="outline" className="text-xs gap-1 bg-orange-500/5 text-orange-600 border-orange-500/20">
               <RotateCcw className="h-3 w-3" />
               Próba {post.retry_count}
@@ -228,7 +228,7 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
             <div className="text-sm text-muted-foreground">
               {format(new Date(post.scheduled_at), "d MMM, HH:mm", { locale: pl })}
               {/* Show retry info */}
-              {(post.retry_count && post.retry_count > 0) && (
+              {post.retry_count > 0 && (
                 <div className="text-xs text-orange-600 mt-1">
                   Próby publikacji: {post.retry_count}
                   {post.next_retry_at && post.status === 'rate_limited' && (
