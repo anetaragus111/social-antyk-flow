@@ -155,9 +155,13 @@ export type Database = {
           category: string
           created_at: string
           day: number
+          error_code: string | null
+          error_message: string | null
           id: string
+          next_retry_at: string | null
           platforms: Json | null
           published_at: string | null
+          retry_count: number | null
           scheduled_at: string
           status: string
           text: string
@@ -170,9 +174,13 @@ export type Database = {
           category: string
           created_at?: string
           day: number
+          error_code?: string | null
+          error_message?: string | null
           id?: string
+          next_retry_at?: string | null
           platforms?: Json | null
           published_at?: string | null
+          retry_count?: number | null
           scheduled_at: string
           status?: string
           text: string
@@ -185,9 +193,13 @@ export type Database = {
           category?: string
           created_at?: string
           day?: number
+          error_code?: string | null
+          error_message?: string | null
           id?: string
+          next_retry_at?: string | null
           platforms?: Json | null
           published_at?: string | null
+          retry_count?: number | null
           scheduled_at?: string
           status?: string
           text?: string

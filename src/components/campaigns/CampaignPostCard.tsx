@@ -19,6 +19,10 @@ type CampaignPost = {
   scheduled_at: string;
   published_at: string | null;
   status: string;
+  error_message?: string | null;
+  error_code?: string | null;
+  retry_count?: number | null;
+  next_retry_at?: string | null;
   platforms?: any; // jsonb array of platforms
   book?: {
     id: string;
@@ -138,6 +142,13 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
             Opublikowany
           </Badge>
         );
+      case 'rate_limited':
+        return (
+          <Badge variant="secondary" className="gap-1 bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+            <Clock className="h-3 w-3" />
+            Rate Limit
+          </Badge>
+        );
       case 'failed':
         return (
           <Badge variant="secondary" className="gap-1 bg-red-500/10 text-red-600 border-red-500/20">
@@ -251,6 +262,26 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
       ) : (
         <div className="space-y-3">
           <p className="text-sm whitespace-pre-wrap">{post.text}</p>
+          
+          {/* Error message display */}
+          {(post.status === 'rate_limited' || post.status === 'failed') && post.error_message && (
+            <div className={`p-3 rounded-lg ${
+              post.status === 'rate_limited' 
+                ? 'bg-yellow-500/10 border border-yellow-500/20' 
+                : 'bg-red-500/10 border border-red-500/20'
+            }`}>
+              <p className={`text-sm font-medium ${
+                post.status === 'rate_limited' ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {post.error_message}
+              </p>
+              {post.next_retry_at && post.status === 'rate_limited' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ponowna próba: {format(new Date(post.next_retry_at), "d MMMM yyyy, HH:mm", { locale: pl })}
+                </p>
+              )}
+            </div>
+          )}
 
           {post.book && (
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
@@ -318,7 +349,7 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
             </div>
           )}
           
-          {!readOnly && post.status === 'failed' && (
+          {!readOnly && (post.status === 'failed' || post.status === 'rate_limited') && (
             <div className="flex gap-2 flex-wrap">
               <Button
                 size="sm"
