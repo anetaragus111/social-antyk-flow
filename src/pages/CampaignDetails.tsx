@@ -255,6 +255,31 @@ const CampaignDetails = () => {
     },
   });
 
+  const retryPostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const scheduledAt = new Date();
+      scheduledAt.setMinutes(scheduledAt.getMinutes() + 2);
+      
+      const { error } = await (supabase as any)
+        .from('campaign_posts')
+        .update({ 
+          status: 'scheduled',
+          scheduled_at: scheduledAt.toISOString(),
+          published_at: null
+        } as any)
+        .eq('id', postId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-posts', id] });
+      toast.success("Post zostanie ponownie wysłany za 2 minuty");
+    },
+    onError: () => {
+      toast.error("Błąd podczas ponownej próby publikacji");
+    },
+  });
+
   if (campaignLoading || postsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -550,6 +575,9 @@ const CampaignDetails = () => {
               }}
               onUpdateSchedule={async (postId, scheduledAt) => {
                 await updateScheduleMutation.mutateAsync({ postId, scheduledAt });
+              }}
+              onRetry={async (postId) => {
+                await retryPostMutation.mutateAsync(postId);
               }}
             />
           ))}
