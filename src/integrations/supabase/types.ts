@@ -14,15 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      book_platform_content: {
+        Row: {
+          ai_generated_text: string | null
+          auto_publish_enabled: boolean | null
+          book_id: string
+          created_at: string
+          custom_text: string | null
+          hashtags: string[] | null
+          id: string
+          media_urls: string[] | null
+          mentions: string[] | null
+          platform: string
+          post_id: string | null
+          published: boolean | null
+          published_at: string | null
+          scheduled_publish_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_generated_text?: string | null
+          auto_publish_enabled?: boolean | null
+          book_id: string
+          created_at?: string
+          custom_text?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_urls?: string[] | null
+          mentions?: string[] | null
+          platform: string
+          post_id?: string | null
+          published?: boolean | null
+          published_at?: string | null
+          scheduled_publish_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_generated_text?: string | null
+          auto_publish_enabled?: boolean | null
+          book_id?: string
+          created_at?: string
+          custom_text?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_urls?: string[] | null
+          mentions?: string[] | null
+          platform?: string
+          post_id?: string | null
+          published?: boolean | null
+          published_at?: string | null
+          scheduled_publish_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_platform_content_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       books: {
         Row: {
           ai_generated_text: string | null
           auto_publish_enabled: boolean | null
+          campaign_post_count: number | null
           code: string
           created_at: string
           description: string | null
           id: string
           image_url: string | null
+          is_product: boolean | null
+          last_campaign_date: string | null
           product_url: string | null
           promotional_price: number | null
           published: boolean
@@ -38,11 +103,14 @@ export type Database = {
         Insert: {
           ai_generated_text?: string | null
           auto_publish_enabled?: boolean | null
+          campaign_post_count?: number | null
           code: string
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
+          is_product?: boolean | null
+          last_campaign_date?: string | null
           product_url?: string | null
           promotional_price?: number | null
           published?: boolean
@@ -58,11 +126,14 @@ export type Database = {
         Update: {
           ai_generated_text?: string | null
           auto_publish_enabled?: boolean | null
+          campaign_post_count?: number | null
           code?: string
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
+          is_product?: boolean | null
+          last_campaign_date?: string | null
           product_url?: string | null
           promotional_price?: number | null
           published?: boolean
@@ -74,6 +145,153 @@ export type Database = {
           title?: string
           updated_at?: string
           warehouse_quantity?: number | null
+        }
+        Relationships: []
+      }
+      campaign_posts: {
+        Row: {
+          book_id: string | null
+          campaign_id: string
+          category: string
+          created_at: string
+          day: number
+          id: string
+          platforms: Json | null
+          published_at: string | null
+          scheduled_at: string
+          status: string
+          text: string
+          time: string
+          type: string
+        }
+        Insert: {
+          book_id?: string | null
+          campaign_id: string
+          category: string
+          created_at?: string
+          day: number
+          id?: string
+          platforms?: Json | null
+          published_at?: string | null
+          scheduled_at: string
+          status?: string
+          text: string
+          time: string
+          type: string
+        }
+        Update: {
+          book_id?: string | null
+          campaign_id?: string
+          category?: string
+          created_at?: string
+          day?: number
+          id?: string
+          platforms?: Json | null
+          published_at?: string | null
+          scheduled_at?: string
+          status?: string
+          text?: string
+          time?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_posts_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          content_posts_count: number
+          created_at: string
+          description: string | null
+          duration_days: number
+          id: string
+          name: string
+          posting_times: Json
+          posts_per_day: number
+          sales_posts_count: number
+          start_date: string
+          status: string
+          target_platforms: Json | null
+          updated_at: string
+        }
+        Insert: {
+          content_posts_count: number
+          created_at?: string
+          description?: string | null
+          duration_days: number
+          id?: string
+          name: string
+          posting_times: Json
+          posts_per_day: number
+          sales_posts_count: number
+          start_date: string
+          status?: string
+          target_platforms?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          content_posts_count?: number
+          created_at?: string
+          description?: string | null
+          duration_days?: number
+          id?: string
+          name?: string
+          posting_times?: Json
+          posts_per_day?: number
+          sales_posts_count?: number
+          start_date?: string
+          status?: string
+          target_platforms?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      facebook_oauth_tokens: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          page_id: string | null
+          page_name: string | null
+          scope: string | null
+          token_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          page_id?: string | null
+          page_name?: string | null
+          scope?: string | null
+          token_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          page_id?: string | null
+          page_name?: string | null
+          scope?: string | null
+          token_type?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

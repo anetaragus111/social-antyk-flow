@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Edit2, Save, X, Clock, CheckCircle2, AlertCircle, BookOpen, RefreshCw, Trash2, Calendar } from "lucide-react";
+import { Edit2, Save, X, Clock, CheckCircle2, AlertCircle, BookOpen, RefreshCw, Trash2, Calendar, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { PlatformBadge } from "./PlatformBadge";
@@ -34,10 +34,11 @@ type CampaignPostCardProps = {
   onRegenerate?: (postId: string) => Promise<void>;
   onDelete?: (postId: string) => Promise<void>;
   onUpdateSchedule?: (postId: string, newScheduledAt: string) => Promise<void>;
+  onRetry?: (postId: string) => Promise<void>;
   readOnly?: boolean;
 };
 
-export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdateSchedule, readOnly = false }: CampaignPostCardProps) => {
+export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdateSchedule, onRetry, readOnly = false }: CampaignPostCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [editedText, setEditedText] = useState(post.text);
@@ -47,6 +48,7 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const handleSave = async () => {
     if (!onSave) return;
@@ -106,6 +108,18 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
   const handleCancelSchedule = () => {
     setEditedSchedule(format(new Date(post.scheduled_at), "yyyy-MM-dd'T'HH:mm"));
     setIsEditingSchedule(false);
+  };
+
+  const handleRetry = async () => {
+    if (!onRetry) return;
+    setIsRetrying(true);
+    try {
+      await onRetry(post.id);
+    } catch (error) {
+      console.error("Error retrying post:", error);
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   const getStatusBadge = () => {
@@ -289,6 +303,33 @@ export const CampaignPostCard = ({ post, onSave, onRegenerate, onDelete, onUpdat
                   Regeneruj AI
                 </Button>
               )}
+              {onDelete && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="gap-1"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Usuń
+                </Button>
+              )}
+            </div>
+          )}
+          
+          {!readOnly && post.status === 'failed' && (
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleRetry}
+                disabled={isRetrying}
+                className="gap-1"
+              >
+                <RotateCcw className={`h-3 w-3 ${isRetrying ? 'animate-spin' : ''}`} />
+                {isRetrying ? "Planowanie..." : "Wyślij ponownie"}
+              </Button>
               {onDelete && (
                 <Button
                   size="sm"
