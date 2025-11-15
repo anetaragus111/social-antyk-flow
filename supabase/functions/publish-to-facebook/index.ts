@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { text, bookId, campaignPostId, imageUrl } = await req.json();
+    const { text, bookId, campaignPostId, imageUrl, testConnection } = await req.json();
 
     // Get Facebook Page Access Token
     const { data: tokenData, error: tokenError } = await supabase
@@ -54,6 +54,23 @@ Deno.serve(async (req) => {
     }
 
     console.log('Publishing to Facebook Page:', page_name, page_id);
+
+    // If it's just a connection test, return success
+    if (testConnection) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          connected: true,
+          pageName: page_name,
+          pageId: page_id,
+          platform: 'facebook',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
 
     let postText = text;
     let productUrl = '';
