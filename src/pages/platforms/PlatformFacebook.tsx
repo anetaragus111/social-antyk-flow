@@ -50,8 +50,8 @@ const PlatformFacebook = () => {
       
       if (error) throw error;
       
-      if (data?.authUrl) {
-        window.location.href = data.authUrl;
+      if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (error: any) {
       toast({
