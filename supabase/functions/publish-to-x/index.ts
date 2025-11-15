@@ -405,25 +405,27 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Format tweet text
+        // Format tweet text - text already contains URL for sales posts from campaign generation
         let tweetText = campaignPost.text;
-        
-        // If it's a sales post with a book, append the product URL
-        if (campaignPost.type === 'sales' && campaignPost.book?.product_url) {
-          tweetText = `${campaignPost.text}\n\n${campaignPost.book.product_url}`;
-        }
 
-        // Upload media if book has an image
+        // Upload media if book has an image (REQUIRED for sales posts)
         let mediaIds: string[] = [];
         if (campaignPost.book?.image_url || campaignPost.book?.storage_path) {
           try {
             if (campaignPost.book.storage_path) {
-              console.log("Uploading media from book.storage_path...");
+              console.log(`📤 Uploading media from storage_path: ${campaignPost.book.storage_path}`);
               const { data: storageBlob, error: storageError } = await supabaseClient.storage
                 .from('ObrazkiKsiazek')
                 .download(campaignPost.book.storage_path);
-              if (storageError) throw storageError;
+              
+              if (storageError) {
+                console.error("❌ Storage download error:", storageError);
+                throw new Error(`Failed to download from storage: ${storageError.message}`);
+              }
+              
               const arrayBuffer = await storageBlob.arrayBuffer();
+              console.log(`✅ Downloaded ${arrayBuffer.byteLength} bytes from storage`);
+              
               const inferType = (p: string) => {
                 const ext = p.split('.').pop()?.toLowerCase();
                 switch (ext) {
@@ -436,19 +438,38 @@ Deno.serve(async (req) => {
                 }
               };
               const contentType = storageBlob.type || inferType(campaignPost.book.storage_path);
+              console.log(`📸 Uploading to X.com with content type: ${contentType}`);
+              
+              // Pass arrayBuffer and contentType as options object
               const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
               mediaIds = [mediaId];
-              console.log("Media uploaded successfully from storage_path, media_id:", mediaId);
+              console.log("✅ Media uploaded successfully from storage_path, media_id:", mediaId);
             } else if (campaignPost.book.image_url) {
-              console.log("Uploading media from image_url...");
+              console.log(`📤 Uploading media from image_url: ${campaignPost.book.image_url}`);
               const mediaId = await uploadMedia(campaignPost.book.image_url);
               mediaIds = [mediaId];
-              console.log("Media uploaded successfully, media_id:", mediaId);
+              console.log("✅ Media uploaded successfully from image_url, media_id:", mediaId);
             }
-          } catch (error) {
-            console.error("Failed to upload media, continuing without image:", error);
+          } catch (error: any) {
+            console.error("❌ Media upload failed:", error);
+            console.error("Error details:", {
+              message: error.message,
+              stack: error.stack,
+              storage_path: campaignPost.book?.storage_path,
+              image_url: campaignPost.book?.image_url
+            });
+            
+            // For sales posts, media is REQUIRED - don't publish without it
+            if (campaignPost.type === 'sales') {
+              throw new Error(`Sales post requires image but upload failed: ${error.message}`);
+            }
           }
+        } else if (campaignPost.type === 'sales') {
+          // Sales posts MUST have an image
+          throw new Error('Sales post missing book image (no storage_path or image_url)');
         }
+
+        console.log(`🐦 Sending tweet with ${mediaIds.length} media attachments`);
 
         // Send tweet
         const tweetResponse = await sendTweetWithRetry(tweetText, mediaIds, oauth2Token ?? undefined);
