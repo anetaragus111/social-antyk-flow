@@ -55,9 +55,9 @@ export const PlatformConnectionStatus = ({ platform }: PlatformConnectionStatusP
     },
   });
 
-  const handleConnect = () => {
-    if (platform === "x") {
-      // Start Twitter OAuth flow
+  const handleConnect = async () => {
+    if (platform === "x" || platform === "facebook") {
+      // Start OAuth flow
       window.location.href = "/settings/social-accounts";
     } else {
       toast({
