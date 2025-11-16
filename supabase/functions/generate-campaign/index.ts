@@ -204,7 +204,8 @@ Post może mieć do ${maxTextLength} znaków, więc wykorzystaj przestrzeń na:
 - Emocjonalne połączenie z polską tożsamością
 - Storytelling - opowiedz historię w angażujący sposób
 - Zachęcenie do komentowania i dzielenia się własnymi przemyśleniami
-Zakończ linkiem: https://sklep.antyk.org.pl`,
+Zakończ linkiem: https://sklep.antyk.org.pl
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
     quiz: `Stwórz rozbudowaną zagadkę o polskiej historii, symbolach narodowych lub ważnych wydarzeniach.
 Post może mieć do ${maxTextLength} znaków, więc:
 - Stwórz intrygujące wprowadzenie do zagadki
@@ -212,7 +213,8 @@ Post może mieć do ${maxTextLength} znaków, więc:
 - Podaj kilka wskazówek lub ciekawych faktów związanych z tematem
 - Zachęć do dyskusji i dzielenia się odpowiedziami w komentarzach
 - Stwórz atmosferę przyjaźnie rywalizacji
-Zakończ linkiem: https://sklep.antyk.org.pl`,
+Zakończ linkiem: https://sklep.antyk.org.pl
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
     event: `Napisz bogaty w szczegóły post o polskiej rocznicy, święcie narodowym lub ważnym wydarzeniu historycznym.
 Post może mieć do ${maxTextLength} znaków, więc możesz:
 - Przedstawić szeroki kontekst historyczny wydarzenia
@@ -221,14 +223,15 @@ Post może mieć do ${maxTextLength} znaków, więc możesz:
 - Pokazać znaczenie tego wydarzenia dla współczesności
 - Zachęcić do refleksji i dyskusji
 - Zaproponować sposoby uczczenia tej rocznicy
-Zakończ linkiem: https://sklep.antyk.org.pl`,
+Zakończ linkiem: https://sklep.antyk.org.pl
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
     sales: "Promocja konkretnej książki - szczegóły zostaną dodane dynamicznie",
   });
 
   const getXPrompts = (): Record<string, string> => ({
-    trivia: "Stwórz fascynującą ciekawostkę o polskiej historii, literaturze patriotycznej lub bohaterach narodowych. Powinna być krótka (max 240 znaków), inspirująca i budująca dumę narodową. Zakończ linkiem: https://sklep.antyk.org.pl",
-    quiz: "Stwórz intrygującą zagadkę o polskiej historii, symbolach narodowych lub ważnych wydarzeniach. Zachęć do interakcji (max 240 znaków). Zakończ linkiem: https://sklep.antyk.org.pl",
-    event: "Napisz o polskiej rocznicy, święcie narodowym lub ważnym wydarzeniu historycznym (max 240 znaków). Podkreśl znaczenie dla polskiej tożsamości. Zakończ linkiem: https://sklep.antyk.org.pl",
+    trivia: "Stwórz fascynującą ciekawostkę o polskiej historii, literaturze patriotycznej lub bohaterach narodowych. Powinna być krótka (max 240 znaków), inspirująca i budująca dumę narodową. Zakończ linkiem: https://sklep.antyk.org.pl. WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.",
+    quiz: "Stwórz intrygującą zagadkę o polskiej historii, symbolach narodowych lub ważnych wydarzeniach. Zachęć do interakcji (max 240 znaków). Zakończ linkiem: https://sklep.antyk.org.pl. WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.",
+    event: "Napisz o polskiej rocznicy, święcie narodowym lub ważnym wydarzeniu historycznym (max 240 znaków). Podkreśl znaczenie dla polskiej tożsamości. Zakończ linkiem: https://sklep.antyk.org.pl. WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.",
     sales: "Promocja konkretnej książki - szczegóły zostaną dodane dynamicznie",
   });
 
@@ -270,6 +273,7 @@ Post może mieć do ${maxTextLength} znaków, więc wykorzystaj przestrzeń na:
 - Zawierać DOKŁADNĄ cenę bez zmian i zaokrągleń
 - Kończyć się linkiem: ${bookData.product_url}
 
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.
 Pisz w sposób angażujący, osobisty i przekonujący. To ma być mini-recenzja i zachęta, nie tylko suchy opis.`;
         } else {
           // Short post for X or mixed platforms
@@ -283,7 +287,9 @@ Post powinien:
 - Podkreślać wartości patriotyczne
 - Zachęcać do zakupu
 - Zawierać DOKŁADNĄ cenę bez zmian i zaokrągleń
-- Kończyć się linkiem: ${bookData.product_url}`;
+- Kończyć się linkiem: ${bookData.product_url}
+
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`;
         }
       } else if (item.type === 'content') {
         // Add deduplication instruction for content posts
@@ -370,28 +376,32 @@ async function generateSimpleCampaign(body: any, apiKey: string) {
 - Interesujące i angażujące
 - Związane z książkami, autorami lub literaturą
 - Napisane w przystępny, przyjazny sposób
-- Zakończone zaproszeniem do odwiedzenia sklepu`,
+- Zakończone zaproszeniem do odwiedzenia sklepu
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 
     quiz: `Jesteś kreatorem quizów literackich. Twórz angażujące zagadki i pytania:
 - Pytanie jest intrygujące i ma tło (nie tylko "zgadnij autora")
 - Długość max 250 znaków z URL-em
 - Zachęcaj do interakcji (np. "Odpowiedź w komentarzach!")
 - Pytania powinny być ciekawe dla miłośników książek
-- Dodaj link do sklepu na końcu`,
+- Dodaj link do sklepu na końcu
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 
     recommendation: `Jesteś pasjonatem książek polecającym lektury. Twórz rekomendacje które:
 - Opisują książkę w intrygujący sposób
 - Wyjaśniają dla kogo jest ta książka
 - Max 250 znaków z URL-em
 - Używają emocjonalnego języka
-- Zachęcają do zakupu`,
+- Zachęcają do zakupu
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 
     event: `Tworzysz posty o wydarzeniach literackich. Posty powinny:
 - Informować o wydarzeniach, rocznicach, świętach literackich
 - Być aktualne i sezonowe
 - Max 250 znaków z URL-em
 - Łączyć wydarzenie z ofertą księgarni
-- Zachęcać do odwiedzin`,
+- Zachęcać do odwiedzin
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
   };
 
   const userPrompt = bookData
@@ -406,6 +416,8 @@ Każdy post powinien:
 - Zawierać odpowiednie emoji
 - Kończyć się linkiem do produktu
 - Nie przekraczać 250 znaków ŁĄCZNIE z linkiem
+
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.
 
 Zwróć TYLKO tablicę JSON z postami w formacie:
 [
@@ -422,6 +434,8 @@ Każdy post powinien:
 - Kończyć się linkiem do sklepu głównego
 - Nie przekraczać 250 znaków ŁĄCZNIE z linkiem
 - Promować różne aspekty księgarni
+
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.
 
 Zwróć TYLKO tablicę JSON z postami w formacie:
 [
