@@ -171,6 +171,30 @@ async function generatePostsContent(body: any, apiKey: string) {
 
   console.log(`Found ${availableBooks?.length || 0} available books for ${salesPostsCount} sales posts`);
 
+  // Fetch content history for deduplication (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const platformIds = targetPlatforms.map((p: any) => p.id || p);
+  const contentHistory: Record<string, Array<{ category: string; topic_summary: string }>> = {};
+  
+  for (const platformId of platformIds) {
+    const { data: history, error: historyError } = await supabase
+      .from('campaign_content_history')
+      .select('category, topic_summary')
+      .eq('platform', platformId)
+      .gte('created_at', sixMonthsAgo.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (historyError) {
+      console.error(`Error fetching content history for ${platformId}:`, historyError);
+      contentHistory[platformId] = [];
+    } else {
+      contentHistory[platformId] = history || [];
+      console.log(`Found ${history?.length || 0} previous topics for ${platformId}`);
+    }
+  }
+
   // Platform-specific prompts
   const getFacebookPrompts = (): Record<string, string> => ({
     trivia: `Stwórz bogatą w treść ciekawostkę o polskiej historii, literaturze patriotycznej lub bohaterach narodowych. 
@@ -260,6 +284,24 @@ Post powinien:
 - Zachęcać do zakupu
 - Zawierać DOKŁADNĄ cenę bez zmian i zaokrągleń
 - Kończyć się linkiem: ${bookData.product_url}`;
+        }
+      } else if (item.type === 'content') {
+        // Add deduplication instruction for content posts
+        let deduplicationNote = '\n\n';
+        
+        for (const platformId of platformIds) {
+          const history = contentHistory[platformId] || [];
+          if (history.length > 0) {
+            const categoryHistory = history.filter(h => h.category === item.category);
+            if (categoryHistory.length > 0) {
+              const topics = categoryHistory.map(h => h.topic_summary).join('\n- ');
+              deduplicationNote += `WAŻNE! UNIKAJ tych tematów, które były już użyte na ${platformId} w ostatnich 6 miesiącach:\n- ${topics}\n\n`;
+            }
+          }
+        }
+        
+        if (deduplicationNote.trim()) {
+          prompt += deduplicationNote + 'Wygeneruj całkowicie NOWY, UNIKALNY temat, który nie pokrywa się z powyższymi.';
         }
       }
 

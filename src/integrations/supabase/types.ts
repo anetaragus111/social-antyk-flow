@@ -148,6 +148,44 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_content_history: {
+        Row: {
+          campaign_post_id: string
+          category: string
+          created_at: string
+          full_text: string
+          id: string
+          platform: string
+          topic_summary: string
+        }
+        Insert: {
+          campaign_post_id: string
+          category: string
+          created_at?: string
+          full_text: string
+          id?: string
+          platform: string
+          topic_summary: string
+        }
+        Update: {
+          campaign_post_id?: string
+          category?: string
+          created_at?: string
+          full_text?: string
+          id?: string
+          platform?: string
+          topic_summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_content_history_campaign_post_id_fkey"
+            columns: ["campaign_post_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_posts: {
         Row: {
           book_id: string | null

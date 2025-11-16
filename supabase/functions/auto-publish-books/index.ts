@@ -253,6 +253,54 @@ Deno.serve(async (req) => {
           if (updateError) {
             console.error(`Error updating campaign post status:`, updateError);
           }
+
+          // Update book statistics if this is a sales post
+          if (post.type === 'sales' && post.book_id) {
+            console.log(`Updating statistics for book ${post.book_id}`);
+            
+            // Fetch current book data
+            const { data: bookData, error: fetchBookError } = await supabase
+              .from('books')
+              .select('campaign_post_count')
+              .eq('id', post.book_id)
+              .single();
+
+            if (!fetchBookError && bookData) {
+              const { error: bookUpdateError } = await supabase
+                .from('books')
+                .update({
+                  campaign_post_count: (bookData.campaign_post_count || 0) + 1,
+                  last_campaign_date: new Date().toISOString()
+                })
+                .eq('id', post.book_id);
+
+              if (bookUpdateError) {
+                console.error(`Error updating book statistics:`, bookUpdateError);
+              }
+            }
+          }
+
+          // Save content post to history for deduplication
+          if (post.type === 'content') {
+            console.log(`Saving content post ${post.id} to history for platforms:`, platforms);
+            
+            // Save to history for each platform
+            for (const platform of platforms) {
+              const { error: historyError } = await supabase
+                .from('campaign_content_history')
+                .insert({
+                  campaign_post_id: post.id,
+                  platform: platform,
+                  category: post.category || 'unknown',
+                  topic_summary: post.text.substring(0, 150),
+                  full_text: post.text
+                });
+
+              if (historyError) {
+                console.error(`Error saving content history for ${platform}:`, historyError);
+              }
+            }
+          }
           
           successCount++;
           results.push({
