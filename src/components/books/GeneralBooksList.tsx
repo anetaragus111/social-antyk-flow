@@ -10,7 +10,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
 
-type SortColumn = "code" | "title" | "stock_status" | "sale_price";
+type SortColumn = "code" | "title" | "sale_price";
 type SortDirection = "asc" | "desc";
 
 export const GeneralBooksList = () => {
@@ -31,22 +31,22 @@ export const GeneralBooksList = () => {
     queryFn: async () => {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
-      
-      let query = supabase
-        .from("books")
-        .select("*", { count: 'exact' });
+
+      let query = supabase.from("books").select("*", { count: "exact" });
 
       if (searchQuery.trim()) {
-        query = query.or(`code.ilike.%${searchQuery}%,title.ilike.%${searchQuery}%,sale_price.eq.${parseFloat(searchQuery) || 0}`);
+        query = query.or(
+          `code.ilike.%${searchQuery}%,title.ilike.%${searchQuery}%,sale_price.eq.${parseFloat(searchQuery) || 0}`,
+        );
       }
 
       const { data, error, count } = await query
         .order(sortColumn, { ascending: sortDirection === "asc" })
         .range(from, to);
-      
+
       if (error) throw error;
       return { books: data, totalCount: count || 0 };
-    }
+    },
   });
 
   const books = booksData?.books;
@@ -112,7 +112,7 @@ export const GeneralBooksList = () => {
               className="w-64"
             />
             <Badge variant="secondary">
-              {totalCount} {totalCount === 1 ? 'książka' : totalCount < 5 ? 'książki' : 'książek'}
+              {totalCount} {totalCount === 1 ? "książka" : totalCount < 5 ? "książki" : "książek"}
             </Badge>
           </div>
         </div>
@@ -124,27 +124,33 @@ export const GeneralBooksList = () => {
               <TableRow>
                 <TableHead className="w-[100px]">Okładka</TableHead>
                 <TableHead>
-                  <Button variant="ghost" onClick={() => handleSort("code")} className="font-semibold p-0 h-auto hover:bg-transparent">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("code")}
+                    className="font-semibold p-0 h-auto hover:bg-transparent"
+                  >
                     Kod
                     <SortIcon column="code" />
                   </Button>
                 </TableHead>
                 <TableHead>
-                  <Button variant="ghost" onClick={() => handleSort("title")} className="font-semibold p-0 h-auto hover:bg-transparent">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("title")}
+                    className="font-semibold p-0 h-auto hover:bg-transparent"
+                  >
                     Tytuł
                     <SortIcon column="title" />
                   </Button>
                 </TableHead>
                 <TableHead>
-                  <Button variant="ghost" onClick={() => handleSort("sale_price")} className="font-semibold p-0 h-auto hover:bg-transparent">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("sale_price")}
+                    className="font-semibold p-0 h-auto hover:bg-transparent"
+                  >
                     Cena
                     <SortIcon column="sale_price" />
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button variant="ghost" onClick={() => handleSort("stock_status")} className="font-semibold p-0 h-auto hover:bg-transparent">
-                    Status
-                    <SortIcon column="stock_status" />
                   </Button>
                 </TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
@@ -156,11 +162,7 @@ export const GeneralBooksList = () => {
                   <TableRow key={book.id}>
                     <TableCell>
                       {book.image_url ? (
-                        <img 
-                          src={book.image_url} 
-                          alt={book.title} 
-                          className="w-16 h-20 object-cover rounded"
-                        />
+                        <img src={book.image_url} alt={book.title} className="w-16 h-20 object-cover rounded" />
                       ) : (
                         <div className="w-16 h-20 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">
                           Brak
@@ -178,20 +180,13 @@ export const GeneralBooksList = () => {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {book.stock_status && (
-                        <Badge variant={book.stock_status === 'in_stock' ? 'default' : 'secondary'}>
-                          {book.stock_status === 'in_stock' ? 'Dostępna' : 'Niedostępna'}
-                        </Badge>
-                      )}
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {book.product_url && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(book.product_url!, '_blank')}
+                            onClick={() => window.open(book.product_url!, "_blank")}
                             title="Otwórz link do produktu"
                           >
                             <ExternalLink className="h-4 w-4" />
@@ -212,7 +207,7 @@ export const GeneralBooksList = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    {searchQuery ? 'Nie znaleziono książek pasujących do wyszukiwania' : 'Brak książek w bazie'}
+                    {searchQuery ? "Nie znaleziono książek pasujących do wyszukiwania" : "Brak książek w bazie"}
                   </TableCell>
                 </TableRow>
               )}
@@ -230,12 +225,12 @@ export const GeneralBooksList = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              
+
               <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
                 <Input
                   type="text"
@@ -250,7 +245,7 @@ export const GeneralBooksList = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
               >
                 <ChevronRight className="h-4 w-4" />
