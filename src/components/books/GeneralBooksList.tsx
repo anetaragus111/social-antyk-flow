@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Loader2, ExternalLink, Eye, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Snowflake } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ type SortDirection = "asc" | "desc";
 export const GeneralBooksList = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>("code");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,6 +35,13 @@ export const GeneralBooksList = () => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setCurrentPage(1); // Reset to first page on search
+      
+      // Restore focus and move cursor to end after debounce
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+        const length = searchQuery.length;
+        searchInputRef.current.setSelectionRange(length, length);
+      }
     }, 500);
 
     return () => clearTimeout(timer);
@@ -146,6 +154,7 @@ export const GeneralBooksList = () => {
           <CardTitle>Lista książek</CardTitle>
           <div className="flex items-center gap-4">
             <Input
+              ref={searchInputRef}
               placeholder="Szukaj po kodzie, tytule, cenie..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
