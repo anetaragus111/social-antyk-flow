@@ -83,12 +83,6 @@ export const QuickActions = () => {
       onClick: () => navigate("/schedule-overview"),
     },
     {
-      icon: Settings,
-      label: "Połącz platformy",
-      description: "Połącz konta społecznościowe",
-      variant: "secondary" as const,
-    },
-    {
       icon: Download,
       label: "Załaduj XML",
       description: "Załaduj tytuły i linki z XML",
