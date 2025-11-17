@@ -55,15 +55,15 @@ export default function SocialAccounts() {
       
       if (error) throw error;
       
-      if (data?.url) {
+      if (data?.authUrl) {
         // Store code verifier for callback
         if (data.codeVerifier) {
-          sessionStorage.setItem('twitter_code_verifier', data.codeVerifier);
+          sessionStorage.setItem('twitter_oauth_verifier', data.codeVerifier);
         }
         if (data.state) {
-          sessionStorage.setItem('twitter_state', data.state);
+          sessionStorage.setItem('twitter_oauth_state', data.state);
         }
-        window.location.href = data.url;
+        window.location.href = data.authUrl;
       }
     } catch (error: any) {
       console.error('Error connecting X:', error);
