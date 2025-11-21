@@ -331,14 +331,23 @@ async function sendTweet(tweetText: string, mediaIds?: string[], oauth2Token?: s
   });
 
   const responseText = await response.text();
-  console.log("Tweet Response Status:", response.status);
-  console.log("Tweet Response Body:", responseText);
+  console.log("✅ X API Response:", {
+    status: response.status,
+    statusText: response.statusText,
+    body: responseText
+  });
 
   if (!response.ok) {
     throw new Error(`Failed to send tweet: ${response.status}, body: ${responseText}`);
   }
 
-  return JSON.parse(responseText);
+  const responseData = JSON.parse(responseText);
+  console.log("✅ Tweet published successfully:", {
+    tweetId: responseData.data?.id,
+    text: responseData.data?.text
+  });
+
+  return responseData;
 }
 
 Deno.serve(async (req) => {
@@ -631,10 +640,17 @@ Deno.serve(async (req) => {
         if (bookError) throw bookError;
         if (!book) throw new Error(`Book not found: ${id}`);
 
-        // Check if already published
-        if (book.published) {
-          console.log(`Book ${id} already published, skipping`);
-          results.push({ id, success: false, error: "Already published" });
+        // Check if already published on THIS platform (X)
+        const { data: platformContent } = await supabaseClient
+          .from('book_platform_content')
+          .select('*')
+          .eq('book_id', id)
+          .eq('platform', 'x')
+          .maybeSingle();
+
+        if (platformContent?.published) {
+          console.log(`Book ${id} already published on X, skipping`);
+          results.push({ id, success: false, error: "Already published on this platform" });
           continue;
         }
 
@@ -731,13 +747,41 @@ Deno.serve(async (req) => {
         const tweetResponse = await sendTweetWithRetry(tweetText, mediaIds, oauth2Token ?? undefined);
         console.log("Tweet sent successfully:", tweetResponse);
 
-        // Update book as published
-        const { error: updateError } = await supabaseClient
-          .from('books')
-          .update({ published: true })
-          .eq('id', id);
+        // Get or create platform content record
+        const { data: existingContent } = await supabaseClient
+          .from('book_platform_content')
+          .select('*')
+          .eq('book_id', id)
+          .eq('platform', 'x')
+          .maybeSingle();
 
-        if (updateError) throw updateError;
+        if (existingContent) {
+          // Update existing record
+          const { error: updateError } = await supabaseClient
+            .from('book_platform_content')
+            .update({ 
+              published: true,
+              published_at: new Date().toISOString(),
+              post_id: tweetResponse.data?.id
+            })
+            .eq('id', existingContent.id);
+
+          if (updateError) throw updateError;
+        } else {
+          // Create new record
+          const { error: insertError } = await supabaseClient
+            .from('book_platform_content')
+            .insert({
+              book_id: id,
+              platform: 'x',
+              published: true,
+              published_at: new Date().toISOString(),
+              post_id: tweetResponse.data?.id,
+              ai_generated_text: book.ai_generated_text
+            });
+
+          if (insertError) throw insertError;
+        }
 
         results.push({ 
           id, 
@@ -757,6 +801,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
+        success: results.every(r => r.success), // true only if all succeeded
         results,
         summary: {
           total: results.length,

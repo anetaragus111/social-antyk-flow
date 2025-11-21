@@ -149,9 +149,19 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
       
       if (error) throw error;
       
-      // Check if the response indicates failure
-      if (data && !data.success && data.error) {
-        throw new Error(data.error);
+      // CRITICAL: Check top-level success field
+      if (data && data.success === false) {
+        // Extract first error from results if available
+        const firstError = data.results?.find((r: any) => !r.success)?.error;
+        throw new Error(firstError || data.error || 'Publikacja nie powiodła się');
+      }
+
+      // Additional validation for results array
+      if (data && data.results) {
+        const failed = data.results.filter((r: any) => !r.success);
+        if (failed.length > 0) {
+          throw new Error(failed[0].error || 'Publikacja nie powiodła się');
+        }
       }
       
       return data;
@@ -209,6 +219,31 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
       toast({
         title: "Błąd",
         description: "Nie udało się przygotować publikacji",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRepublish = async (contentId: string, bookId: string) => {
+    try {
+      // Reset published status
+      const { error: resetError } = await (supabase as any)
+        .from("book_platform_content")
+        .update({ published: false, published_at: null, post_id: null })
+        .eq("id", contentId);
+
+      if (resetError) throw resetError;
+
+      // Invalidate queries to refresh UI
+      queryClient.invalidateQueries({ queryKey: ["platform-content"] });
+
+      // Proceed with publication
+      setPublishingIds((prev) => new Set(prev).add(contentId));
+      publishMutation.mutate({ contentId, bookId });
+    } catch (error) {
+      toast({
+        title: "Błąd",
+        description: "Nie udało się przygotować ponownej publikacji",
         variant: "destructive",
       });
     }
@@ -402,6 +437,7 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
               >
                 Status <SortIcon column="published" />
               </TableHead>
+              <TableHead>Data publikacji</TableHead>
               <TableHead>Harmonogram</TableHead>
               <TableHead className="text-right">Akcje</TableHead>
             </TableRow>
@@ -448,6 +484,20 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                     )}
                   </TableCell>
                   <TableCell>
+                    {content.published_at ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          {new Date(content.published_at).toLocaleDateString("pl-PL")}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(content.published_at).toLocaleTimeString("pl-PL")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {content.scheduled_publish_at ? (
                       <span className="text-sm text-muted-foreground">
                         {new Date(content.scheduled_publish_at).toLocaleString("pl-PL")}
@@ -474,7 +524,24 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {!content.published && (
+                      {content.published ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRepublish(content.id, book.id)}
+                          disabled={!content.ai_generated_text || isPublishing}
+                          title="Opublikuj ponownie"
+                        >
+                          {isPublishing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Undo2 className="h-4 w-4 mr-1" />
+                              Ponownie
+                            </>
+                          )}
+                        </Button>
+                      ) : (
                         <>
                           <Button
                             size="sm"
