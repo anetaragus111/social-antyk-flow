@@ -140,10 +140,13 @@ async function verifyOAuth1(): Promise<{ ok: boolean; user?: any; status?: numbe
   }
 }
 
-async function uploadMedia(imageUrl?: string, opts?: { arrayBuffer?: ArrayBuffer; contentType?: string }): Promise<string> {
-  // CRITICAL: Always use OAuth 1.0a for media uploads
-  // X API v1.1 media endpoint does NOT support OAuth 2.0
-  console.log("📤 Uploading media with OAuth 1.0a (X API v1.1 requirement)");
+async function uploadMedia(imageUrl?: string, opts?: { arrayBuffer?: ArrayBuffer; contentType?: string; oauth2Token?: string }): Promise<string> {
+  // Try OAuth 2.0 first (user's account), fallback to OAuth 1.0a if not provided
+  if (opts?.oauth2Token) {
+    console.log("📤 Uploading media with OAuth 2.0 Bearer token (user's account)");
+  } else {
+    console.log("📤 Uploading media with OAuth 1.0a (fallback to fixed account)");
+  }
   
   const hasBuffer = !!opts?.arrayBuffer;
   let contentType = opts?.contentType || "image/jpeg";
@@ -174,15 +177,18 @@ async function uploadMedia(imageUrl?: string, opts?: { arrayBuffer?: ArrayBuffer
   }
   const imageBase64 = btoa(binaryString);
 
-  // First try simple upload with media_data (always OAuth 1.0a)
+  // First try simple upload with media_data
   try {
     const method = "POST";
     const formData = new FormData();
     formData.append("media_data", imageBase64);
     
-    const headers: Record<string, string> = {
-      Authorization: generateOAuthHeader(method, UPLOAD_URL)
-    };
+    const headers: Record<string, string> = {};
+    if (opts?.oauth2Token) {
+      headers['Authorization'] = `Bearer ${opts.oauth2Token}`;
+    } else {
+      headers['Authorization'] = generateOAuthHeader(method, UPLOAD_URL);
+    }
     
     const response = await fetch(UPLOAD_URL, {
       method,
@@ -196,20 +202,29 @@ async function uploadMedia(imageUrl?: string, opts?: { arrayBuffer?: ArrayBuffer
     
     if (response.ok) {
       const result = JSON.parse(responseText);
+      console.log("✅ Simple media upload successful, media_id:", result.media_id_string);
       return result.media_id_string;
     } else {
+      // If OAuth2 fails with 403, it means X API doesn't support it for media upload
+      if (opts?.oauth2Token && (response.status === 401 || response.status === 403)) {
+        console.error("❌ OAuth 2.0 not supported for X API v1.1 media upload");
+        throw new Error(`X API v1.1 media upload doesn't support OAuth 2.0. This is a known X API limitation.`);
+      }
       console.warn("Simple media upload failed, will try chunked upload");
     }
   } catch (e) {
     console.warn("Simple media upload threw, will try chunked upload:", e);
   }
 
-  // Fallback: Chunked upload (INIT -> APPEND -> FINALIZE) - always OAuth 1.0a
+  // Fallback: Chunked upload (INIT -> APPEND -> FINALIZE)
   console.log("📦 Using chunked upload (INIT -> APPEND -> FINALIZE)");
   
-  const headers: Record<string, string> = {
-    Authorization: generateOAuthHeader("POST", UPLOAD_URL)
-  };
+  const headers: Record<string, string> = {};
+  if (opts?.oauth2Token) {
+    headers['Authorization'] = `Bearer ${opts.oauth2Token}`;
+  } else {
+    headers['Authorization'] = generateOAuthHeader("POST", UPLOAD_URL);
+  }
 
   // INIT
   const initForm = new FormData();
@@ -536,13 +551,13 @@ Deno.serve(async (req) => {
               const contentType = storageBlob.type || inferType(campaignPost.book.storage_path);
               console.log(`📸 Uploading to X.com with content type: ${contentType}`);
               
-              // Upload media using OAuth 1.0a (X API v1.1 requirement)
-              const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
+              // Upload media with user's OAuth2 token
+              const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType, oauth2Token });
               mediaIds = [mediaId];
               console.log("✅ Media uploaded successfully from storage_path, media_id:", mediaId);
             } else if (campaignPost.book.image_url) {
               console.log(`📤 Uploading media from image_url: ${campaignPost.book.image_url}`);
-              const mediaId = await uploadMedia(campaignPost.book.image_url);
+              const mediaId = await uploadMedia(campaignPost.book.image_url, { oauth2Token });
               mediaIds = [mediaId];
               console.log("✅ Media uploaded successfully from image_url, media_id:", mediaId);
             }
@@ -758,7 +773,7 @@ Deno.serve(async (req) => {
               }
             };
             const contentType = storageBlob.type || inferType(book.storage_path);
-            const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
+            const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType, oauth2Token });
             mediaIds = [mediaId];
             console.log("Media uploaded successfully from book.storage_path, media_id:", mediaId);
           } else if (storageBucket && storagePath) {
@@ -780,12 +795,12 @@ Deno.serve(async (req) => {
               }
             };
             const contentType = storageBlob.type || inferType(storagePath);
-            const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType });
+            const mediaId = await uploadMedia(undefined, { arrayBuffer, contentType, oauth2Token });
             mediaIds = [mediaId];
             console.log("Media uploaded successfully from storage override, media_id:", mediaId);
           } else if (book.image_url) {
             console.log("Uploading media from image_url...");
-            const mediaId = await uploadMedia(book.image_url);
+            const mediaId = await uploadMedia(book.image_url, { oauth2Token });
             mediaIds = [mediaId];
             console.log("Media uploaded successfully, media_id:", mediaId);
           }
