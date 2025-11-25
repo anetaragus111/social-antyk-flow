@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     console.log('Successfully stored Facebook Page token:', tokenRecord);
 
     // Redirect user back to the application
-    const redirectUrl = new URL('https://c4157687-6f8a-4875-aa6d-ac0c6ad3fb78.lovableproject.com/platforms/facebook');
+    const redirectUrl = new URL('https://social-auto-flow.netlify.app/platforms/facebook');
     redirectUrl.searchParams.set('connected', 'true');
     redirectUrl.searchParams.set('page_name', pageName);
     
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     // Redirect back to app with error
-    const redirectUrl = new URL('https://c4157687-6f8a-4875-aa6d-ac0c6ad3fb78.lovableproject.com/platforms/facebook');
+    const redirectUrl = new URL('https://social-auto-flow.netlify.app/platforms/facebook');
     redirectUrl.searchParams.set('error', errorMessage);
     
     return new Response(null, {

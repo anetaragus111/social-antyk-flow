@@ -71,28 +71,63 @@ const PlatformFacebook = () => {
 
   const handleConnectFacebook = async () => {
     try {
+      console.log('🔵 [Facebook OAuth] Starting connection flow...');
+      
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔵 [Facebook OAuth] Session status:', session ? 'authenticated' : 'not authenticated');
+      
       if (!session) {
         toast({ title: "Musisz być zalogowany", variant: "destructive" });
         return;
       }
 
       const redirectUri = `${window.location.origin}/oauth/facebook/callback`;
+      console.log('🔵 [Facebook OAuth] Redirect URI:', redirectUri);
+      console.log('🔵 [Facebook OAuth] User ID:', session.user.id);
+      
       const { data, error } = await supabase.functions.invoke('facebook-oauth-start', {
         body: { redirectUri, userId: session.user.id }
       });
       
-      if (error) throw error;
+      console.log('🔵 [Facebook OAuth] Edge function response:', { data, error });
       
-      if (data?.url) {
-        if (data.state) {
-          sessionStorage.setItem('facebook_state', data.state);
-          sessionStorage.setItem('facebook_user_id', session.user.id);
-        }
-        window.location.href = data.url;
+      if (error) {
+        console.error('❌ [Facebook OAuth] Edge function error:', error);
+        throw error;
       }
+      
+      if (!data?.url) {
+        console.error('❌ [Facebook OAuth] No authorization URL returned');
+        throw new Error('Nie otrzymano URL autoryzacji z serwera');
+      }
+      
+      console.log('🔵 [Facebook OAuth] Authorization URL received');
+      
+      if (data.state) {
+        sessionStorage.setItem('facebook_state', data.state);
+        sessionStorage.setItem('facebook_user_id', session.user.id);
+        console.log('🔵 [Facebook OAuth] State saved to sessionStorage');
+      } else {
+        console.warn('⚠️ [Facebook OAuth] No state returned from edge function');
+      }
+      
+      console.log('🔵 [Facebook OAuth] Redirecting to Facebook...');
+      window.location.href = data.url;
     } catch (error: any) {
-      toast({ title: "Błąd podczas łączenia z Facebook", description: error.message, variant: "destructive" });
+      console.error('❌ [Facebook OAuth] Connection error:', error);
+      
+      let errorMessage = error.message;
+      if (error.message?.includes('API Key')) {
+        errorMessage = 'Brak konfiguracji Facebook API. Skontaktuj się z administratorem.';
+      } else if (error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Błąd połączenia z serwerem. Sprawdź połączenie internetowe.';
+      }
+      
+      toast({ 
+        title: "Błąd podczas łączenia z Facebook", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   };
 
