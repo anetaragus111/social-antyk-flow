@@ -19,8 +19,8 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
   const [plan, setPlan] = useState<any>(null);
 
   const totalPosts = config.durationDays * config.postsPerDay;
-  const contentPosts = Math.floor(totalPosts * 0.8);
-  const salesPosts = totalPosts - contentPosts;
+  const salesPosts = Math.floor(totalPosts * 0.8);
+  const contentPosts = totalPosts - salesPosts;
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -113,25 +113,25 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 mb-6">
-          <Card className="p-4 bg-blue-500/10 border-blue-500/20">
-            <div className="flex items-center gap-2 mb-2">
-              <BookOpen className="h-5 w-5 text-blue-500" />
-              <h4 className="font-semibold">Content (80%)</h4>
-            </div>
-            <p className="text-2xl font-bold text-blue-500">{contentPosts} postów</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Ciekawostki, zagadki, wydarzenia literackie
-            </p>
-          </Card>
-
           <Card className="p-4 bg-green-500/10 border-green-500/20">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-5 w-5 text-green-500" />
-              <h4 className="font-semibold">Sprzedaż (20%)</h4>
+              <h4 className="font-semibold">Sprzedaż (80%)</h4>
             </div>
             <p className="text-2xl font-bold text-green-500">{salesPosts} postów</p>
             <p className="text-sm text-muted-foreground mt-1">
               Promocje, rekomendacje, oferty specjalne
+            </p>
+          </Card>
+
+          <Card className="p-4 bg-blue-500/10 border-blue-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-5 w-5 text-blue-500" />
+              <h4 className="font-semibold">Content (20%)</h4>
+            </div>
+            <p className="text-2xl font-bold text-blue-500">{contentPosts} postów</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Ciekawostki nawiązujące do oferowanych książek
             </p>
           </Card>
         </div>
@@ -140,7 +140,7 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
           <h4 className="font-semibold mb-2">Co zostanie wygenerowane:</h4>
           <ul className="space-y-1 text-sm text-muted-foreground">
             <li>✓ Strategiczny plan rozmieszczenia postów contentowych i sprzedażowych</li>
-            <li>✓ Różnorodne kategorie contentowe (ciekawostki, zagadki, wydarzenia)</li>
+            <li>✓ Ciekawostki nawiązujące do najbliższej promowanej książki</li>
             <li>✓ Unikalne treści dla każdego posta dostosowane do kategorii</li>
             <li>✓ Automatyczny harmonogram publikacji w wybranych godzinach</li>
           </ul>
