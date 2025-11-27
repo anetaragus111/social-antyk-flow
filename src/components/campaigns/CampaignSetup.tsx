@@ -123,7 +123,7 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
   };
 
   const totalPosts = durationDays * postsPerDay;
-  const contentPosts = Math.floor(totalPosts * 0.8);
+  const contentPosts = Math.floor(totalPosts * 0.2);
   const salesPosts = totalPosts - contentPosts;
 
   const handleSubmit = () => {
@@ -264,22 +264,22 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
             <p className="text-3xl font-bold text-primary">{totalPosts}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Posty contentowe (80%)</p>
+            <p className="text-sm text-muted-foreground">Posty contentowe (20%)</p>
             <p className="text-3xl font-bold text-blue-500">{contentPosts}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Posty sprzedażowe (20%)</p>
+            <p className="text-sm text-muted-foreground">Posty sprzedażowe (80%)</p>
             <p className="text-3xl font-bold text-green-500">{salesPosts}</p>
           </div>
         </div>
         
         <div className="mt-4 p-4 bg-secondary/50 rounded-lg">
           <p className="text-sm text-muted-foreground mb-2">
-            <strong>Strategia 80/20:</strong>
+            <strong>Strategia 20/80:</strong>
           </p>
           <ul className="text-sm space-y-1 text-muted-foreground">
-            <li>• 80% postów to wartościowy content (ciekawostki, zagadki, wydarzenia)</li>
-            <li>• 20% postów to bezpośrednia promocja i sprzedaż książek</li>
+            <li>• 20% postów to wartościowy content (ciekawostki, zagadki, wydarzenia)</li>
+            <li>• 80% postów to bezpośrednia promocja i sprzedaż książek</li>
             <li>• Grok AI automatycznie dobierze odpowiednie typy postów</li>
           </ul>
         </div>
