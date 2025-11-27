@@ -53,27 +53,29 @@ async function generateCampaignStructure(body: any, apiKey: string) {
   console.log("Generating campaign structure:", { totalPosts, contentPosts, salesPosts });
 
   const systemPrompt = `Jesteś ekspertem od strategii content marketingu dla księgarni patriotycznej. 
-Twoim zadaniem jest stworzyć optymalny plan kampanii zgodnie z zasadą 80/20 (80% wartościowy content patriotyczny, 20% sprzedaż książek).
+Twoim zadaniem jest stworzyć optymalny plan kampanii z przewagą postów sprzedażowych (80% sprzedaż, 20% content).
 
 Zasady:
-- Równomierne rozłożenie postów sprzedażowych w czasie (nie grupuj ich razem)
-- Różnorodność kategorii contentowych patriotycznych (ciekawostki historyczne, zagadki, rocznice)
-- Strategiczne umieszczenie postów sprzedażowych (np. po ciekawych contentach)
+- Równomierne rozłożenie postów contentowych w czasie (nie grupuj ich razem)
+- Posty contentowe (ciekawostki) zawsze PRZED lub PO poście sprzedażowym, do którego nawiązują
+- Strategiczne umieszczenie ciekawostek jako wprowadzenie lub follow-up do sprzedaży
 - Balansowanie typów postów dzień po dniu`;
 
   const userPrompt = `Stwórz strukturę kampanii na ${durationDays} dni, ${postsPerDay} posty dziennie (łącznie ${totalPosts} postów).
 
 Rozkład:
-- ${contentPosts} postów contentowych (80%)
-- ${salesPosts} postów sprzedażowych (20%)
+- ${salesPosts} postów sprzedażowych (80%)
+- ${contentPosts} postów contentowych (20%)
 
-Dla postów contentowych użyj tych kategorii patriotycznych:
-- "trivia" (ciekawostki o polskich bohaterach, historii, literaturze patriotycznej)
-- "quiz" (zagadki o polskiej historii, symbolach narodowych)
-- "event" (polskie rocznice, święta narodowe, ważne wydarzenia historyczne)
+WAŻNE: Posty contentowe to TYLKO ciekawostki (trivia), które będą nawiązywać do książek z sąsiednich postów sprzedażowych.
+
+Dla postów contentowych użyj kategorii:
+- "trivia" (ciekawostki nawiązujące do tematyki książek)
 
 Dla postów sprzedażowych użyj kategorii:
 - "sales" (promocje książek)
+
+Umieszczaj posty "trivia" strategicznie - przed lub po poście "sales", żeby wprowadzały kontekst lub podsumowywały temat.
 
 Zwróć TYLKO tablicę JSON z ${totalPosts} obiektami, każdy w formacie:
 {
@@ -82,7 +84,7 @@ Zwróć TYLKO tablicę JSON z ${totalPosts} obiektami, każdy w formacie:
   "category": odpowiednia_kategoria
 }
 
-Przykład: [{"position":1,"type":"content","category":"trivia"},{"position":2,"type":"content","category":"quiz"}]`;
+Przykład: [{"position":1,"type":"sales","category":"sales"},{"position":2,"type":"content","category":"trivia"},{"position":3,"type":"sales","category":"sales"}]`;
 
   const response = await fetch("https://api.x.ai/v1/chat/completions", {
     method: "POST",
@@ -259,6 +261,17 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 
   const posts = [];
   let salesBookIndex = 0;
+  
+  // Build a map of position -> book for trivia posts to reference
+  const positionToBookMap: Record<number, any> = {};
+  let tempSalesIndex = 0;
+  
+  structure.forEach((item: any) => {
+    if (item.type === 'sales' && availableBooks && tempSalesIndex < availableBooks.length) {
+      positionToBookMap[item.position] = availableBooks[tempSalesIndex];
+      tempSalesIndex++;
+    }
+  });
 
   // Generate posts in batches of 5 to avoid rate limits
   const batchSize = 5;
@@ -311,11 +324,33 @@ Post powinien:
 
 WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`;
         }
-      } else if (item.type === 'content') {
-        // Add book context for content posts
-        const booksContextNote = booksContext 
-          ? `\n\nKONTEKST KSIĘGARNI - dostępne książki patriotyczne:\n${booksContext}\n\nWAŻNE: Twórz ciekawostki, quizy i eventy, które NATURALNIE nawiązują do tematyki naszych książek patriotycznych. Nie wspominaj bezpośrednio tytułów książek, ale inspiruj się ich tematyką (historia Polski, bohaterowie narodowi, wydarzenia patriotyczne). Dzięki temu treść będzie spójna z ofertą księgarni.\n`
-          : '';
+      } else if (item.type === 'content' && item.category === 'trivia') {
+        // Find nearest sales post to reference
+        let nearestBook = null;
+        let minDistance = Infinity;
+        
+        for (const [pos, book] of Object.entries(positionToBookMap)) {
+          const distance = Math.abs(Number(pos) - item.position);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestBook = book;
+          }
+        }
+        
+        if (nearestBook) {
+          // Create trivia specifically related to this book
+          const triviaContext = `Stwórz ciekawostkę, która NATURALNIE nawiązuje do tematyki tej książki:
+Tytuł: ${nearestBook.title}
+${nearestBook.description ? `Opis: ${nearestBook.description}` : ""}
+
+WAŻNE: 
+- NIE wspominaj bezpośrednio tytułu książki ani autora
+- Stwórz ciekawostkę o temacie/okresie/postaci, o których traktuje ta książka
+- Ciekawostka powinna być na tyle związana z książką, że czytelnicy zainteresowani tą ciekawostką mogą być zainteresowani książką
+- Ciekawostka powinna być samodzielna i wartościowa, nie tylko "wstępem" do sprzedaży\n\n`;
+          
+          prompt = triviaContext + prompt;
+        }
 
         // Add deduplication instruction for content posts
         let deduplicationNote = '\n\n';
@@ -332,9 +367,7 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`;
         }
         
         if (deduplicationNote.trim()) {
-          prompt += booksContextNote + deduplicationNote + 'Wygeneruj całkowicie NOWY, UNIKALNY temat, który nie pokrywa się z powyższymi.';
-        } else {
-          prompt += booksContextNote;
+          prompt += deduplicationNote + 'Wygeneruj całkowicie NOWY, UNIKALNY temat, który nie pokrywa się z powyższymi.';
         }
       }
 
