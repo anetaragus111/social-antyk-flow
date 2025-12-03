@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, Send, Calendar, Eye, ExternalLink, Undo2, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Sparkles, Send, Calendar, Eye, ExternalLink, Undo2, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil } from "lucide-react";
 import { PlatformAITextDialog } from "./PlatformAITextDialog";
 import { PlatformScheduleDialog } from "./PlatformScheduleDialog";
 import { XPostPreviewDialog } from "@/components/books/XPostPreviewDialog";
+import { EditBookDialog } from "@/components/books/EditBookDialog";
 
 type SortColumn = "code" | "title" | "published";
 type SortDirection = "asc" | "desc";
@@ -28,12 +29,32 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  
+  // Debounce state for search
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Sync local state with prop
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+  
+  // Debounce effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(localSearchQuery);
+      onSearchChange(localSearchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localSearchQuery]);
 
   const { data: contentData, isLoading } = useQuery({
-    queryKey: ["platform-content", platform, sortColumn, sortDirection, searchQuery],
+    queryKey: ["platform-content", platform, sortColumn, sortDirection, debouncedSearch],
     queryFn: async () => {
       // Fetch all books with LEFT JOIN to book_platform_content for this platform
       let query = (supabase as any)
@@ -72,11 +93,11 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
       });
 
       // Filter by search query if provided
-      if (searchQuery.trim()) {
+      if (debouncedSearch.trim()) {
         transformedData = transformedData.filter((item: any) => {
           return (
-            item.book.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.book.title?.toLowerCase().includes(searchQuery.toLowerCase())
+            item.book.code?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            item.book.title?.toLowerCase().includes(debouncedSearch.toLowerCase())
           );
         });
       }
@@ -297,6 +318,11 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
     setPreviewDialogOpen(true);
   };
 
+  const handleEdit = (bookId: string) => {
+    setSelectedBookId(bookId);
+    setEditDialogOpen(true);
+  };
+
   const handleBulkGenerateAI = async () => {
     if (!contentData || contentData.length === 0) {
       toast({
@@ -404,9 +430,10 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               placeholder="Szukaj po kodzie lub tytule..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              value={localSearchQuery}
+              onChange={(e) => setLocalSearchQuery(e.target.value)}
               className="pl-8 w-[300px]"
             />
           </div>
@@ -511,6 +538,14 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => handleEdit(book.id)}
+                        title="Edytuj książkę"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleGenerateAI(book.id)}
                       >
                         <Sparkles className="h-4 w-4 mr-1" />
@@ -611,6 +646,13 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
             open={previewDialogOpen}
             onOpenChange={setPreviewDialogOpen}
             book={selectedBook}
+            aiGeneratedText={selectedContent?.ai_generated_text}
+          />
+          <EditBookDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            book={selectedBook}
+            onSuccess={() => queryClient.invalidateQueries({ queryKey: ["platform-content"] })}
           />
         </>
       )}

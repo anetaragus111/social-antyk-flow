@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Upload } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types";
 
 const bookSchema = z.object({
   code: z.string().min(1, "Kod jest wymagany").max(50, "Kod może mieć maksymalnie 50 znaków"),
@@ -24,13 +25,14 @@ const bookSchema = z.object({
 
 type BookFormData = z.infer<typeof bookSchema>;
 
-interface AddBookDialogProps {
+interface EditBookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  book: Tables<"books"> | null;
   onSuccess?: () => void;
 }
 
-export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogProps) => {
+export const EditBookDialog = ({ open, onOpenChange, book, onSuccess }: EditBookDialogProps) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -49,19 +51,38 @@ export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogPr
     },
   });
 
+  // Reset form when book changes
+  useEffect(() => {
+    if (book) {
+      form.reset({
+        code: book.code || "",
+        title: book.title || "",
+        image_url: book.image_url || "",
+        sale_price: book.sale_price?.toString() || "",
+        promotional_price: book.promotional_price?.toString() || "",
+        description: book.description || "",
+        product_url: book.product_url || "",
+        stock_status: book.stock_status || "",
+      });
+    }
+  }, [book, form]);
+
   const uploadImageFromUrl = async (imageUrl: string, bookId: string): Promise<string | null> => {
     try {
       setIsUploadingImage(true);
       
+      // Fetch image through a proxy to avoid CORS
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error("Nie udało się pobrać obrazu");
       
       const blob = await response.blob();
       
+      // Get file extension from URL or content type
       const contentType = response.headers.get("content-type") || "image/jpeg";
       const extension = contentType.split("/")[1]?.split(";")[0] || "jpg";
       const storagePath = `books/${bookId}.${extension}`;
       
+      // Upload to Storage
       const { error: uploadError } = await supabase.storage
         .from("ObrazkiKsiazek")
         .upload(storagePath, blob, { 
@@ -81,57 +102,59 @@ export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogPr
   };
 
   const onSubmit = async (data: BookFormData) => {
+    if (!book) return;
+    
     setIsSubmitting(true);
     try {
       const bookData: any = {
         code: data.code,
         title: data.title,
+        description: data.description || null,
+        sale_price: data.sale_price ? parseFloat(data.sale_price) : null,
+        promotional_price: data.promotional_price ? parseFloat(data.promotional_price) : null,
+        product_url: data.product_url || null,
+        stock_status: data.stock_status || null,
       };
 
-      if (data.image_url) bookData.image_url = data.image_url;
-      if (data.sale_price) bookData.sale_price = parseFloat(data.sale_price);
-      if (data.promotional_price) bookData.promotional_price = parseFloat(data.promotional_price);
-      if (data.description) bookData.description = data.description;
-      if (data.product_url) bookData.product_url = data.product_url;
-      if (data.stock_status) bookData.stock_status = data.stock_status;
-
-      const { data: insertedBook, error } = await supabase
-        .from("books")
-        .insert(bookData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Try to upload image to storage if URL provided
-      if (data.image_url && insertedBook) {
-        const storagePath = await uploadImageFromUrl(data.image_url, insertedBook.id);
+      // Handle image URL - upload to storage if it's a new URL
+      if (data.image_url && data.image_url !== book.image_url) {
+        bookData.image_url = data.image_url;
+        
+        // Try to upload to storage
+        const storagePath = await uploadImageFromUrl(data.image_url, book.id);
         if (storagePath) {
-          await supabase
-            .from("books")
-            .update({ storage_path: storagePath })
-            .eq("id", insertedBook.id);
-          
+          bookData.storage_path = storagePath;
           toast({
             title: "Obraz zapisany",
             description: "Okładka została pobrana i zapisana w storage",
           });
         }
+      } else if (data.image_url) {
+        bookData.image_url = data.image_url;
+      } else {
+        bookData.image_url = null;
+        bookData.storage_path = null;
       }
+
+      const { error } = await supabase
+        .from("books")
+        .update(bookData)
+        .eq("id", book.id);
+
+      if (error) throw error;
 
       toast({
         title: "Sukces",
-        description: "Książka została dodana pomyślnie",
+        description: "Książka została zaktualizowana",
       });
 
-      form.reset();
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
-      console.error("Error adding book:", error);
+      console.error("Error updating book:", error);
       toast({
         title: "Błąd",
-        description: "Nie udało się dodać książki",
+        description: "Nie udało się zaktualizować książki",
         variant: "destructive",
       });
     } finally {
@@ -139,13 +162,15 @@ export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogPr
     }
   };
 
+  if (!book) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Dodaj książkę</DialogTitle>
+          <DialogTitle>Edytuj książkę</DialogTitle>
           <DialogDescription>
-            Wypełnij formularz aby dodać nową książkę do bazy
+            Zmień dane książki
           </DialogDescription>
         </DialogHeader>
 
@@ -253,7 +278,7 @@ export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogPr
                     {isUploadingImage && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Pobieranie do storage...
+                        Pobieranie...
                       </span>
                     )}
                   </FormLabel>
@@ -261,10 +286,12 @@ export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogPr
                     <Input placeholder="https://example.com/cover.jpg" {...field} />
                   </FormControl>
                   <FormMessage />
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Upload className="h-3 w-3" />
-                    Obraz zostanie automatycznie pobrany do storage
-                  </p>
+                  {book.storage_path && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Upload className="h-3 w-3" />
+                      Zapisano w storage: {book.storage_path}
+                    </p>
+                  )}
                 </FormItem>
               )}
             />
@@ -294,7 +321,7 @@ export const AddBookDialog = ({ open, onOpenChange, onSuccess }: AddBookDialogPr
               </Button>
               <Button type="submit" disabled={isSubmitting || isUploadingImage}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Dodaj książkę
+                Zapisz zmiany
               </Button>
             </div>
           </form>
