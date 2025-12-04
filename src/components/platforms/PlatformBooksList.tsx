@@ -446,7 +446,7 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
             <TableRow>
               <TableHead className="w-20">Okładka</TableHead>
               <TableHead 
-                className="cursor-pointer w-20"
+                className="cursor-pointer w-21"
                 onClick={() => handleSort("code")}
               >
                 Kod <SortIcon column="code" />
