@@ -3,13 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Calendar, Clock, ArrowRight, Plus, X, ArrowUpDown } from "lucide-react";
+import { Calendar, Clock, ArrowRight, Plus, X, ArrowUpDown, AlertCircle } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import type { CampaignConfig } from "./CampaignBuilder";
 import { PlatformSelector } from "./PlatformSelector";
+import { BookSelector } from "./BookSelector";
 import { useSearchParams } from "react-router-dom";
 import { PlatformId, getAllPlatforms } from "@/config/platforms";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CampaignSetupProps {
   onComplete: (config: CampaignConfig) => void;
@@ -26,6 +28,7 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
   const [targetPlatforms, setTargetPlatforms] = useState<PlatformId[]>(
     preSelectedPlatform ? [preSelectedPlatform] : ['x']
   );
+  const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
   const [connectedPlatforms, setConnectedPlatforms] = useState<Record<PlatformId, boolean>>(
     {} as Record<PlatformId, boolean>
   );
@@ -140,9 +143,12 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
       startDate,
       startTime: sortedTimes[0],
       postingTimes: sortedTimes,
-      targetPlatforms
+      targetPlatforms,
+      selectedBooks
     });
   };
+
+  const canSubmit = selectedBooks.length > 0;
 
   return (
     <div className="space-y-6">
@@ -255,10 +261,25 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
         connectedPlatforms={connectedPlatforms}
       />
 
+      {/* Book Selection */}
+      <BookSelector
+        selectedBooks={selectedBooks}
+        onSelectionChange={setSelectedBooks}
+      />
+
+      {!canSubmit && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Musisz wybrać co najmniej jedną książkę do kampanii
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Summary */}
       <Card className="p-6 bg-gradient-subtle border-primary/20">
         <h3 className="text-lg font-semibold mb-4">Podsumowanie kampanii</h3>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <div>
             <p className="text-sm text-muted-foreground">Łącznie postów</p>
             <p className="text-3xl font-bold text-primary">{totalPosts}</p>
@@ -270,6 +291,10 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
           <div>
             <p className="text-sm text-muted-foreground">Posty sprzedażowe (80%)</p>
             <p className="text-3xl font-bold text-green-500">{salesPosts}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Wybrane książki</p>
+            <p className="text-3xl font-bold text-amber-500">{selectedBooks.length}</p>
           </div>
         </div>
         
@@ -285,7 +310,7 @@ export const CampaignSetup = ({ onComplete }: CampaignSetupProps) => {
         </div>
       </Card>
 
-      <Button onClick={handleSubmit} className="w-full" size="lg">
+      <Button onClick={handleSubmit} className="w-full" size="lg" disabled={!canSubmit}>
         Przejdź do generowania planu
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>

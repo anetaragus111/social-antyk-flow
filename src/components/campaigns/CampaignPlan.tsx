@@ -3,9 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Sparkles, ArrowLeft, ArrowRight, BookOpen, TrendingUp } from "lucide-react";
-import { format, addDays, parse } from "date-fns";
-import { pl } from "date-fns/locale";
+import { Loader2, Sparkles, ArrowLeft, BookOpen, TrendingUp } from "lucide-react";
 import type { CampaignConfig, CampaignPost } from "./CampaignBuilder";
 
 interface CampaignPlanProps {
@@ -34,7 +32,8 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
           contentPosts,
           salesPosts,
           durationDays: config.durationDays,
-          postsPerDay: config.postsPerDay
+          postsPerDay: config.postsPerDay,
+          selectedBooks: config.selectedBooks
         }
       });
 
@@ -49,7 +48,8 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
         body: {
           action: 'generate_posts',
           structure,
-          targetPlatforms: config.targetPlatforms
+          targetPlatforms: config.targetPlatforms,
+          selectedBooks: config.selectedBooks
         }
       });
 
@@ -112,7 +112,7 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 mb-6">
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
           <Card className="p-4 bg-green-500/10 border-green-500/20">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-5 w-5 text-green-500" />
@@ -132,6 +132,17 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
             <p className="text-2xl font-bold text-blue-500">{contentPosts} postów</p>
             <p className="text-sm text-muted-foreground mt-1">
               Ciekawostki nawiązujące do oferowanych książek
+            </p>
+          </Card>
+
+          <Card className="p-4 bg-amber-500/10 border-amber-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-5 w-5 text-amber-500" />
+              <h4 className="font-semibold">Wybrane książki</h4>
+            </div>
+            <p className="text-2xl font-bold text-amber-500">{config.selectedBooks?.length || 0}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Pozycje do promocji w kampanii
             </p>
           </Card>
         </div>
