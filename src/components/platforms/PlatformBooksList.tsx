@@ -440,13 +440,13 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead>Okładka</TableHead>
+              <TableHead className="w-16">Okładka</TableHead>
               <TableHead 
-                className="cursor-pointer"
+                className="cursor-pointer w-20"
                 onClick={() => handleSort("code")}
               >
                 Kod <SortIcon column="code" />
@@ -457,8 +457,8 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
               >
                 Tytuł <SortIcon column="title" />
               </TableHead>
-              <TableHead>Data publikacji</TableHead>
-              <TableHead className="text-right">Akcje</TableHead>
+              <TableHead className="w-28">Data publikacji</TableHead>
+              <TableHead className="text-right w-36">Akcje</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -481,12 +481,10 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="font-medium w-[4.5rem]">
-                    <span className="inline-block truncate" title={book.code}>
-                      {book.code}
-                    </span>
+                  <TableCell className="font-medium">
+                    {book.code}
                   </TableCell>
-                  <TableCell className="max-w-xs truncate">{book.title}</TableCell>
+                  <TableCell className="truncate" title={book.title}>{book.title}</TableCell>
                   <TableCell>
                     {content.published_at ? (
                       <div className="flex flex-col gap-1">
