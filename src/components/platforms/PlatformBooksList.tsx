@@ -493,21 +493,24 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                   <TableCell className="max-w-xs truncate">{book.title}</TableCell>
                   <TableCell>
                     {content.ai_generated_text ? (
-                      <Badge variant="secondary">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        Wygenerowano
-                      </Badge>
+                      <span title="Tekst AI wygenerowany">
+                        <Sparkles className="h-5 w-5 text-green-500" />
+                      </span>
                     ) : (
-                      <Badge variant="outline">Brak</Badge>
+                      <span className="text-muted-foreground" title="Brak tekstu AI">—</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {content.published ? (
-                      <Badge variant="default">Opublikowano</Badge>
+                      <span title="Opublikowano">
+                        <Send className="h-5 w-5 text-green-500" />
+                      </span>
                     ) : content.auto_publish_enabled ? (
-                      <Badge variant="secondary">Zaplanowano</Badge>
+                      <span title="Zaplanowano">
+                        <Calendar className="h-5 w-5 text-blue-500" />
+                      </span>
                     ) : (
-                      <Badge variant="outline">Oczekuje</Badge>
+                      <span className="text-muted-foreground" title="Oczekuje">—</span>
                     )}
                   </TableCell>
                   <TableCell>

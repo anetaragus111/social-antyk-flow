@@ -21,6 +21,7 @@ export type CampaignConfig = {
   startTime: string;
   postingTimes: string[];
   targetPlatforms?: PlatformId[];
+  selectedBooks?: string[];
 };
 
 export const CampaignBuilder = () => {

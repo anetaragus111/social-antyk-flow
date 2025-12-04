@@ -138,10 +138,11 @@ Przykład: [{"position":1,"type":"sales","category":"sales"},{"position":2,"type
 }
 
 async function generatePostsContent(body: any, apiKey: string) {
-  const { structure, targetPlatforms } = body;
+  const { structure, targetPlatforms, selectedBooks } = body;
 
   console.log("Generating content for posts:", structure.length);
   console.log("Target platforms:", targetPlatforms);
+  console.log("Selected books:", selectedBooks?.length || 0);
   
   // Check if Facebook is in target platforms
   const hasFacebook = targetPlatforms && targetPlatforms.some((p: any) => p.id === 'facebook' || p === 'facebook');
@@ -155,13 +156,22 @@ async function generatePostsContent(body: any, apiKey: string) {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Get available books for sales posts (exclude frozen books)
+  // Get available books for sales posts - filter by selectedBooks if provided
   const salesPostsCount = structure.filter((item: any) => item.type === "sales").length;
-  const { data: availableBooks, error: booksError } = await supabase
+  let booksQuery = supabase
     .from("books")
     .select("id, title, description, sale_price, product_url, campaign_post_count")
-    .eq("is_product", true)
-    .eq("exclude_from_campaigns", false)
+    .eq("exclude_from_campaigns", false);
+
+  // If selectedBooks is provided and not empty, filter by those IDs
+  if (selectedBooks && selectedBooks.length > 0) {
+    booksQuery = booksQuery.in("id", selectedBooks);
+  } else {
+    // Fallback: only products if no selection
+    booksQuery = booksQuery.eq("is_product", true);
+  }
+
+  const { data: availableBooks, error: booksError } = await booksQuery
     .order("sale_price", { ascending: false, nullsFirst: false })
     .order("campaign_post_count", { ascending: true })
     .order("last_campaign_date", { ascending: true, nullsFirst: true })
