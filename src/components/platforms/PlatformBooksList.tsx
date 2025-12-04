@@ -481,7 +481,11 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="font-medium">{book.code}</TableCell>
+                  <TableCell className="font-medium">
+                    <span className="inline-block max-w-32 truncate" title={book.code}>
+                      {book.code}
+                    </span>
+                  </TableCell>
                   <TableCell className="max-w-xs truncate">{book.title}</TableCell>
                   <TableCell>
                     {content.published_at ? (
