@@ -444,9 +444,9 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
         <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16">Okładka</TableHead>
+              <TableHead className="w-20">Okładka</TableHead>
               <TableHead 
-                className="cursor-pointer w-20"
+                className="cursor-pointer w-22"
                 onClick={() => handleSort("code")}
               >
                 Kod <SortIcon column="code" />
@@ -458,7 +458,7 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                 Tytuł <SortIcon column="title" />
               </TableHead>
               <TableHead className="w-28">Data publikacji</TableHead>
-              <TableHead className="text-right w-36">Akcje</TableHead>
+              <TableHead className="text-right w-45">Akcje</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
