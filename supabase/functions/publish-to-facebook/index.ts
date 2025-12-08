@@ -25,56 +25,75 @@ Deno.serve(async (req) => {
     console.log('=== Publish to Facebook Request ===');
     console.log('Method:', req.method);
     
-    // Get user_id from Authorization header
-    const authHeader = req.headers.get('authorization');
-    console.log('Authorization header:', authHeader ? 'present' : 'MISSING');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-
-    // Create Supabase client with user token to get user_id
-    const supabaseAnon = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseAnon.auth.getUser();
-    if (userError || !user) {
-      console.error('Failed to get user from token:', userError);
-      throw new Error('Failed to get user from token');
-    }
-
-    const userId = user.id;
-    console.log('User ID:', userId);
-
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Missing Supabase environment variables');
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
+    let userId: string | null = null;
+    
+    // Parse request body first to check for userId parameter (from auto-publish)
     let text: string | undefined,
         bookId: string | undefined,
         campaignPostId: string | undefined,
         imageUrl: string | undefined,
-        testConnection: boolean | undefined;
+        testConnection: boolean | undefined,
+        userIdFromBody: string | undefined;
+    
     try {
-      ({ text, bookId, campaignPostId, imageUrl, testConnection } = await req.json());
-      console.log('Request body:', { text: text ? 'present' : undefined, bookId, campaignPostId, imageUrl: imageUrl ? 'present' : undefined, testConnection });
+      const body = await req.json();
+      text = body.text;
+      bookId = body.bookId;
+      campaignPostId = body.campaignPostId;
+      imageUrl = body.imageUrl;
+      testConnection = body.testConnection;
+      userIdFromBody = body.userId;
+      console.log('Request body:', { 
+        text: text ? 'present' : undefined, 
+        bookId, 
+        campaignPostId, 
+        imageUrl: imageUrl ? 'present' : undefined, 
+        testConnection,
+        userId: userIdFromBody ? 'present' : undefined
+      });
     } catch (_) {
-      // No/invalid JSON body – treat as test connection if nothing else is provided
       testConnection = true;
       console.log('No valid JSON body, treating as test connection');
     }
 
+    // Method 1: userId passed directly in body (from auto-publish with service role)
+    if (userIdFromBody) {
+      userId = userIdFromBody;
+      console.log('Using userId from request body:', userId);
+    } else {
+      // Method 2: Get user_id from Authorization header (direct user call)
+      const authHeader = req.headers.get('authorization');
+      console.log('Authorization header:', authHeader ? 'present' : 'MISSING');
+      
+      if (authHeader) {
+        const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          global: { headers: { Authorization: authHeader } }
+        });
+
+        const { data: { user }, error: userError } = await supabaseAnon.auth.getUser();
+        if (!userError && user) {
+          userId = user.id;
+          console.log('User ID from JWT:', userId);
+        } else {
+          console.log('Failed to get user from JWT:', userError?.message);
+        }
+      }
+    }
+
+    if (!userId) {
+      throw new Error('No user ID available. Please provide userId in request body or valid authorization header.');
+    }
+
+    console.log('Final User ID:', userId);
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     const isTest = Boolean(testConnection) || (!text && !bookId && !campaignPostId);
     console.log('Is test connection:', isTest);
-
 
     // Get Facebook Page Access Token for this user
     console.log('Fetching Facebook token for user:', userId);
