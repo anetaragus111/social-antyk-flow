@@ -74,7 +74,8 @@ Deno.serve(async (req) => {
       .from('campaign_posts')
       .select(`
         *,
-        book:books(id, code, title, image_url, sale_price, promotional_price)
+        book:books(id, code, title, image_url, sale_price, promotional_price),
+        campaign:campaigns(id, target_platforms)
       `)
       .lte('scheduled_at', now)
       .or(`status.eq.scheduled,and(status.eq.rate_limited,next_retry_at.lte.${now})`)
@@ -86,6 +87,27 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Found ${campaignPostsToPublish?.length || 0} campaign posts ready to publish`);
+    
+    // Get first available user with Facebook token for Facebook posts
+    // In a real multi-user app, this should be stored per campaign
+    const { data: fbTokenData } = await supabase
+      .from('facebook_oauth_tokens')
+      .select('user_id')
+      .limit(1)
+      .maybeSingle();
+    
+    const facebookUserId = fbTokenData?.user_id;
+    console.log('Facebook user ID for publishing:', facebookUserId || 'none');
+    
+    // Get first available user with Twitter token for X posts
+    const { data: xTokenData } = await supabase
+      .from('twitter_oauth1_tokens')
+      .select('user_id')
+      .limit(1)
+      .maybeSingle();
+    
+    const xUserId = xTokenData?.user_id;
+    console.log('X user ID for publishing:', xUserId || 'none');
 
     if ((!contentToPublish || contentToPublish.length === 0) && 
         (!campaignPostsToPublish || campaignPostsToPublish.length === 0)) {
@@ -216,10 +238,36 @@ Deno.serve(async (req) => {
               continue;
           }
 
+          // Determine user ID for this platform
+          let platformUserId: string | null = null;
+          if (platform === 'facebook') {
+            platformUserId = facebookUserId;
+          } else if (platform === 'x') {
+            platformUserId = xUserId;
+          }
+
+          if (!platformUserId) {
+            console.error(`No user token found for platform: ${platform}`);
+            
+            // Update post with error
+            await supabase
+              .from('campaign_posts')
+              .update({
+                status: 'failed',
+                error_message: `Brak połączonego konta ${platform === 'facebook' ? 'Facebook' : 'X'}. Połącz konto w ustawieniach platformy.`,
+                error_code: 'NO_PLATFORM_TOKEN'
+              })
+              .eq('id', post.id);
+            
+            platformFailCount++;
+            continue;
+          }
+
           const { data, error: publishError } = await supabase.functions.invoke(publishFunctionName, {
             body: { 
               campaignPostId: post.id,
-              platform: platform
+              platform: platform,
+              userId: platformUserId
             }
           });
 
@@ -232,6 +280,16 @@ Deno.serve(async (req) => {
               data?.error === 'rate_limit';
             
             if (!isRateLimitError) {
+              // Save error message to campaign post
+              const errorMsg = data?.error || publishError.message || 'Unknown error';
+              await supabase
+                .from('campaign_posts')
+                .update({
+                  error_message: errorMsg,
+                  error_code: 'PUBLISH_FAILED'
+                })
+                .eq('id', post.id);
+              
               platformFailCount++;
             }
             // For rate limit errors, don't count as failure - let the retry mechanism handle it

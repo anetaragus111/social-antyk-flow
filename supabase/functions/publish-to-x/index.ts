@@ -325,58 +325,99 @@ Deno.serve(async (req) => {
     console.log('=== Publish to X Request ===');
     console.log('Method:', req.method);
     
-    const authHeader = req.headers.get('authorization');
-    console.log('Authorization header:', authHeader ? 'present' : 'MISSING');
-    
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     
-    // Check if this is a service role call
-    const isServiceRole = authHeader.includes(supabaseServiceKey);
-    let userId: string;
+    let userId: string | null = null;
     
-    if (isServiceRole) {
-      console.log('🔧 Service role call detected (from auto-publish-books cron)');
-      const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
-      const { data: tokenData, error: tokenError } = await serviceSupabase
-        .from('twitter_oauth1_tokens')
-        .select('user_id')
-        .limit(1)
-        .single();
-      
-      if (tokenError || !tokenData?.user_id) {
-        throw new Error('No X OAuth token found. Please connect your X account first.');
-      }
-      
-      userId = tokenData.user_id;
-      console.log('Using user_id from OAuth tokens:', userId);
-    } else {
-      console.log('👤 User call detected');
-      const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: authHeader } }
+    // Parse request body first to check for userId parameter (from auto-publish)
+    let bookId: string | undefined,
+        bookIds: string[] | undefined,
+        campaignPostId: string | undefined,
+        shouldTestConnection: boolean | undefined,
+        storageBucket: string | undefined,
+        storagePath: string | undefined,
+        customText: string | undefined,
+        userIdFromBody: string | undefined;
+    
+    try {
+      const body = await req.json();
+      bookId = body.bookId;
+      bookIds = body.bookIds;
+      campaignPostId = body.campaignPostId;
+      shouldTestConnection = body.testConnection;
+      storageBucket = body.storageBucket;
+      storagePath = body.storagePath;
+      customText = body.customText;
+      userIdFromBody = body.userId;
+      console.log('Request body:', { 
+        bookId, 
+        bookIds: bookIds ? `${bookIds.length} items` : undefined, 
+        campaignPostId, 
+        testConnection: shouldTestConnection, 
+        storageBucket, 
+        storagePath,
+        userId: userIdFromBody ? 'present' : undefined
       });
-
-      const { data: { user }, error: userError } = await supabaseAnon.auth.getUser();
-      if (userError || !user) {
-        console.error('Failed to get user from token:', userError);
-        throw new Error('Failed to get user from token');
-      }
-
-      userId = user.id;
-      console.log('User ID:', userId);
+    } catch (_) {
+      console.log('No valid JSON body');
     }
+
+    // Method 1: userId passed directly in body (from auto-publish with service role)
+    if (userIdFromBody) {
+      userId = userIdFromBody;
+      console.log('Using userId from request body:', userId);
+    } else {
+      // Method 2: Get user_id from Authorization header (direct user call)
+      const authHeader = req.headers.get('authorization');
+      console.log('Authorization header:', authHeader ? 'present' : 'MISSING');
+      
+      if (authHeader) {
+        // Check if this is a service role call
+        const isServiceRole = authHeader.includes(supabaseServiceKey);
+        
+        if (isServiceRole) {
+          console.log('🔧 Service role call detected (from auto-publish-books cron)');
+          const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
+          const { data: tokenData, error: tokenError } = await serviceSupabase
+            .from('twitter_oauth1_tokens')
+            .select('user_id')
+            .limit(1)
+            .maybeSingle();
+          
+          if (tokenError || !tokenData?.user_id) {
+            throw new Error('No X OAuth token found. Please connect your X account first.');
+          }
+          
+          userId = tokenData.user_id;
+          console.log('Using user_id from OAuth tokens:', userId);
+        } else {
+          console.log('👤 User call detected');
+          const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: authHeader } }
+          });
+
+          const { data: { user }, error: userError } = await supabaseAnon.auth.getUser();
+          if (!userError && user) {
+            userId = user.id;
+            console.log('User ID from JWT:', userId);
+          } else {
+            console.log('Failed to get user from JWT:', userError?.message);
+          }
+        }
+      }
+    }
+
+    if (!userId) {
+      throw new Error('No user ID available. Please provide userId in request body or valid authorization header.');
+    }
+
+    console.log('Final User ID:', userId);
     
     validateEnvironmentVariables();
     
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { bookId, bookIds, campaignPostId, testConnection: shouldTestConnection, storageBucket, storagePath, customText } = await req.json();
-    console.log('Request body:', { bookId, bookIds: bookIds ? `${bookIds.length} items` : undefined, campaignPostId, testConnection: shouldTestConnection, storageBucket, storagePath });
     
     // Fetch user's OAuth 1.0a tokens
     const oauth1Token = await getLatestOAuth1Token(supabaseClient, userId);
