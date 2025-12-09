@@ -157,7 +157,11 @@ export const ImportCSVDialog = ({ open, onOpenChange }: ImportCSVDialogProps) =>
     Papa.parse<CSVRow>(csvText, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (header) => header.trim(),
       complete: async (results) => {
+        console.log("CSV headers:", results.meta.fields);
+        console.log("First row sample:", results.data[0]);
+        
         // Filter out empty rows (no code)
         const validItems = results.data.filter((row) => {
           const code = row.Kod?.trim();
@@ -169,33 +173,102 @@ export const ImportCSVDialog = ({ open, onOpenChange }: ImportCSVDialogProps) =>
         let deleted = 0;
         const errors: string[] = [];
 
-        // Get all codes from CSV
-        const csvCodes = new Set(validItems.map(row => row.Kod?.trim()).filter(Boolean));
-
-        // Phase 1: Delete books not in CSV
-        setProgress({ success: 0, failed: 0, total, phase: "Usuwanie nieaktualnych książek...", errors });
+        // Get all codes from CSV - normalize by trimming
+        const csvCodes = new Set(
+          validItems.map(row => row.Kod?.trim()).filter(Boolean)
+        );
         
-        // Fetch all existing book codes from database
+        console.log(`CSV zawiera ${csvCodes.size} unikalnych kodów`);
+        console.log("Przykładowe kody z CSV:", Array.from(csvCodes).slice(0, 10));
+
+        // Phase 1: Fetch all existing book codes from database
+        setProgress({ success: 0, failed: 0, total, phase: "Sprawdzanie istniejących książek...", errors });
+        
         const { data: existingBooks, error: fetchError } = await supabase
           .from("books")
-          .select("id, code");
+          .select("id, code, title");
         
         if (fetchError) {
           console.error("Błąd pobierania książek:", fetchError);
           errors.push(`Błąd pobierania istniejących książek: ${fetchError.message}`);
-        } else if (existingBooks) {
+        }
+        
+        const existingCodes = new Set(existingBooks?.map(b => b.code?.trim()) || []);
+        console.log(`Baza danych zawiera ${existingCodes.size} książek`);
+        console.log("Przykładowe kody z bazy:", Array.from(existingCodes).slice(0, 10));
+
+        // Phase 2: Upsert ALL books from CSV FIRST (add new / update existing)
+        setProgress({ success, failed, total, phase: "Importowanie książek z CSV...", errors: [...errors] });
+
+        // Process in batches of 10
+        const batchSize = 10;
+        for (let i = 0; i < validItems.length; i += batchSize) {
+          const batch = validItems.slice(i, i + batchSize);
+          
+          const bookData = batch.map((row) => {
+            const stockStatus = row["Stan towaru"]?.trim() || null;
+            const isHidden = stockStatus?.toLowerCase() === "niewidoczny";
+            const code = row.Kod?.trim() || "";
+            
+            return {
+              code,
+              title: row.Nazwa?.trim() || "",
+              author: row.Autor?.trim() || null,
+              image_url: row.Obrazek?.trim() || null,
+              sale_price: parsePrice(row["Cena sprzedaży"]),
+              promotional_price: parsePrice(row["Cena promocyjna"]),
+              stock_status: stockStatus,
+              warehouse_quantity: parseQuantity(row["Ilość w magazynach"]),
+              // Freeze items with "niewidoczny" status
+              exclude_from_campaigns: isHidden,
+              // Reset storage_path - will be re-migrated
+              storage_path: null,
+            };
+          });
+
+          const { error } = await supabase
+            .from("books")
+            .upsert(bookData, { 
+              onConflict: "code",
+              ignoreDuplicates: false 
+            });
+
+          if (error) {
+            console.error("Błąd importu partii:", error, bookData);
+            failed += batch.length;
+            const errorMsg = `Pozycje ${i + 1}-${i + batch.length}: ${error.message || 'Nieznany błąd'}`;
+            errors.push(errorMsg);
+          } else {
+            success += batch.length;
+          }
+
+          setProgress({ 
+            success, 
+            failed, 
+            total, 
+            phase: `Importowanie... (${success}/${total})`, 
+            errors: [...errors] 
+          });
+        }
+        
+        // Phase 3: Delete books that are in DB but NOT in CSV
+        // Only proceed if we successfully imported at least some books
+        if (success > 0 && existingBooks) {
+          setProgress({ success, failed, total, phase: "Usuwanie nieaktualnych książek...", errors: [...errors] });
+          
           // Find books to delete (in DB but not in CSV)
-          const booksToDelete = existingBooks.filter(book => !csvCodes.has(book.code));
+          const booksToDelete = existingBooks.filter(book => {
+            const bookCode = book.code?.trim();
+            const shouldDelete = !csvCodes.has(bookCode);
+            if (shouldDelete) {
+              console.log(`Książka do usunięcia: "${book.title}" (kod: "${bookCode}")`);
+            }
+            return shouldDelete;
+          });
+          
+          console.log(`Książki do usunięcia: ${booksToDelete.length}`);
           
           if (booksToDelete.length > 0) {
-            setProgress({ 
-              success: 0, 
-              failed: 0, 
-              total, 
-              phase: `Usuwanie ${booksToDelete.length} nieaktualnych książek...`, 
-              errors 
-            });
-            
             // Delete in batches of 50
             const deleteIds = booksToDelete.map(b => b.id);
             for (let i = 0; i < deleteIds.length; i += 50) {
@@ -213,59 +286,6 @@ export const ImportCSVDialog = ({ open, onOpenChange }: ImportCSVDialogProps) =>
               }
             }
           }
-        }
-
-        // Phase 2: Upsert books from CSV (add new / update existing)
-        setProgress({ success, failed, total, phase: "Aktualizowanie danych książek...", errors: [...errors] });
-
-        // Process in batches of 10
-        const batchSize = 10;
-        for (let i = 0; i < validItems.length; i += batchSize) {
-          const batch = validItems.slice(i, i + batchSize);
-          
-          const bookData = batch.map((row) => {
-            const stockStatus = row["Stan towaru"]?.trim() || null;
-            const isHidden = stockStatus?.toLowerCase() === "niewidoczny";
-            
-            return {
-              code: row.Kod?.trim() || "",
-              title: row.Nazwa?.trim() || "",
-              author: row.Autor?.trim() || null,
-              image_url: row.Obrazek?.trim() || null,
-              sale_price: parsePrice(row["Cena sprzedaży"]),
-              promotional_price: parsePrice(row["Cena promocyjna"]),
-              stock_status: stockStatus,
-              warehouse_quantity: parseQuantity(row["Ilość w magazynach"]),
-              // Freeze items with "niewidoczny" status
-              exclude_from_campaigns: isHidden,
-              // Reset storage_path if image_url changed - will be re-migrated
-              storage_path: null,
-            };
-          });
-
-          const { error } = await supabase
-            .from("books")
-            .upsert(bookData, { 
-              onConflict: "code",
-              ignoreDuplicates: false 
-            });
-
-          if (error) {
-            console.error("Błąd importu partii:", error);
-            failed += batch.length;
-            const errorMsg = `Pozycje ${i + 1}-${i + batch.length}: ${error.message || 'Nieznany błąd'}`;
-            errors.push(errorMsg);
-          } else {
-            success += batch.length;
-          }
-
-          setProgress({ 
-            success, 
-            failed, 
-            total, 
-            phase: `Aktualizowanie danych... (${success}/${total})`, 
-            errors: [...errors] 
-          });
         }
 
         // Phase 3: Migrate images to storage
