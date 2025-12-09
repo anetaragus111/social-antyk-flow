@@ -157,6 +157,7 @@ export const ImportCSVDialog = ({ open, onOpenChange }: ImportCSVDialogProps) =>
     Papa.parse<CSVRow>(csvText, {
       header: true,
       skipEmptyLines: true,
+      delimiter: "\t", // CSV uses TAB separator
       transformHeader: (header) => header.trim(),
       complete: async (results) => {
         console.log("CSV headers:", results.meta.fields);
