@@ -3,15 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Twitter, Facebook, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Twitter, Facebook, CheckCircle2, XCircle, Loader2, Video } from "lucide-react";
 
 export default function SocialAccounts() {
   const [isLoadingX, setIsLoadingX] = useState(false);
   const [isLoadingFB, setIsLoadingFB] = useState(false);
+  const [isLoadingTikTok, setIsLoadingTikTok] = useState(false);
   const [xConnected, setXConnected] = useState(false);
   const [fbConnected, setFbConnected] = useState(false);
+  const [tiktokConnected, setTiktokConnected] = useState(false);
   const [xUsername, setXUsername] = useState<string | null>(null);
   const [fbPageName, setFbPageName] = useState<string | null>(null);
+  const [tiktokOpenId, setTiktokOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     checkConnections();
@@ -44,6 +47,18 @@ export default function SocialAccounts() {
     if (fbData) {
       setFbConnected(true);
       setFbPageName((fbData as any).page_name ?? null);
+    }
+
+    // Check TikTok connection
+    const { data: tiktokData } = await (supabase as any)
+      .from('tiktok_oauth_tokens')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    if (tiktokData) {
+      setTiktokConnected(true);
+      setTiktokOpenId((tiktokData as any).open_id ?? null);
     }
   };
 
@@ -163,6 +178,63 @@ export default function SocialAccounts() {
     }
   };
 
+  const connectTikTok = async () => {
+    setIsLoadingTikTok(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Musisz być zalogowany', {
+          description: 'Zaloguj się, aby połączyć konto TikTok'
+        });
+        setIsLoadingTikTok(false);
+        return;
+      }
+
+      const redirectUri = `${window.location.origin}/oauth/tiktok/callback`;
+      const { data, error } = await supabase.functions.invoke('tiktok-oauth-start', {
+        body: { redirectUri, userId: session.user.id }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        if (data.state) {
+          sessionStorage.setItem('tiktok_oauth_state', data.state);
+        }
+        if (data.codeVerifier) {
+          sessionStorage.setItem('tiktok_code_verifier', data.codeVerifier);
+        }
+        sessionStorage.setItem('tiktok_user_id', session.user.id);
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      console.error('Error connecting TikTok:', error);
+      toast.error('Nie udało się połączyć z TikTok', {
+        description: error.message
+      });
+    } finally {
+      setIsLoadingTikTok(false);
+    }
+  };
+
+  const disconnectTikTok = async () => {
+    try {
+      const { error } = await (supabase as any)
+        .from('tiktok_oauth_tokens')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (error) throw error;
+      
+      setTiktokConnected(false);
+      setTiktokOpenId(null);
+      toast.success('Odłączono konto TikTok');
+    } catch (error: any) {
+      console.error('Error disconnecting TikTok:', error);
+      toast.error('Nie udało się odłączyć konta TikTok');
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-8">
@@ -267,6 +339,57 @@ export default function SocialAccounts() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Facebook className="h-4 w-4" />
+                  )}
+                  Połącz
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* TikTok */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-gradient-to-br from-slate-900/20 to-pink-500/20">
+                <Video className="h-6 w-6 text-slate-900" />
+              </div>
+              <div>
+                <h3 className="font-semibold flex items-center gap-2">
+                  TikTok
+                  {tiktokConnected && (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  )}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {tiktokConnected 
+                    ? `Połączono${tiktokOpenId ? ` (${tiktokOpenId.substring(0, 8)}...)` : ''}`
+                    : 'Nie połączono'
+                  }
+                </p>
+              </div>
+            </div>
+            
+            <div>
+              {tiktokConnected ? (
+                <Button
+                  variant="outline"
+                  onClick={disconnectTikTok}
+                  className="gap-2"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Odłącz
+                </Button>
+              ) : (
+                <Button
+                  onClick={connectTikTok}
+                  disabled={isLoadingTikTok}
+                  className="gap-2"
+                >
+                  {isLoadingTikTok ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Video className="h-4 w-4" />
                   )}
                   Połącz
                 </Button>

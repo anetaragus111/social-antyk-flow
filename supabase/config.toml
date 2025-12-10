@@ -18,6 +18,9 @@ verify_jwt = false
 [functions.publish-to-facebook]
 verify_jwt = false
 
+[functions.publish-to-tiktok]
+verify_jwt = false
+
 [functions.twitter-oauth-start]
 verify_jwt = false
 
@@ -37,6 +40,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.facebook-data-deletion]
+verify_jwt = false
+
+[functions.tiktok-oauth-start]
+verify_jwt = false
+
+[functions.tiktok-oauth-callback]
 verify_jwt = false
 
 [functions.sync-books-from-xml]

@@ -96,8 +96,8 @@ export const platformConfigs: Record<PlatformId, PlatformConfig> = {
     gradientFrom: 'from-slate-900/20',
     gradientTo: 'to-pink-500/20',
     path: '/platforms/tiktok',
-    status: 'coming-soon',
-    priority: 6,
+    status: 'active',
+    priority: 3,
   },
   pinterest: {
     id: 'pinterest',

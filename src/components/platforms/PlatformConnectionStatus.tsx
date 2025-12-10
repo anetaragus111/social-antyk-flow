@@ -85,7 +85,7 @@ export const PlatformConnectionStatus = ({ platform, onConnect }: PlatformConnec
   const handleConnect = async () => {
     if (onConnect) {
       onConnect();
-    } else if (platform === "x" || platform === "facebook") {
+    } else if (platform === "x" || platform === "facebook" || platform === "tiktok") {
       // Start OAuth flow
       window.location.href = "/settings/social-accounts";
     } else {
