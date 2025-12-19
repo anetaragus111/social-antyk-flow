@@ -56,15 +56,34 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
   const { data: contentData, isLoading } = useQuery({
     queryKey: ["platform-content", platform, sortColumn, sortDirection, debouncedSearch],
     queryFn: async () => {
-      // Fetch all books with LEFT JOIN to book_platform_content for this platform
-      let query = (supabase as any)
-        .from("books")
-        .select(`
-          *,
-          platform_content:book_platform_content!left(*)
-        `);
+      // Fetch ALL books using pagination (Supabase has 1000 row limit)
+      const allBooks: any[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: batchData, error: batchError } = await supabase
+          .from("books")
+          .select(`
+            *,
+            platform_content:book_platform_content!left(*)
+          `)
+          .range(offset, offset + batchSize - 1);
+        
+        if (batchError) throw batchError;
+        
+        if (batchData && batchData.length > 0) {
+          allBooks.push(...batchData);
+          offset += batchSize;
+          hasMore = batchData.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
 
-      const { data: booksData, error } = await query;
+      const booksData = allBooks;
+      const error = null;
 
       if (error) throw error;
 
