@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Twitter, Facebook, CheckCircle2, XCircle, Loader2, Video } from "lucide-react";
+import { Twitter, Facebook, CheckCircle2, XCircle, Loader2, Video, ArrowLeft } from "lucide-react";
 
 export default function SocialAccounts() {
+  const navigate = useNavigate();
   const [isLoadingX, setIsLoadingX] = useState(false);
   const [isLoadingFB, setIsLoadingFB] = useState(false);
   const [isLoadingTikTok, setIsLoadingTikTok] = useState(false);
@@ -238,6 +240,14 @@ export default function SocialAccounts() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-8">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate("/")} 
+          className="mb-4 gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Powrót do aplikacji
+        </Button>
         <h1 className="text-3xl font-bold mb-2">Konta społecznościowe</h1>
         <p className="text-muted-foreground">
           Zarządzaj połączonymi kontami mediów społecznościowych
