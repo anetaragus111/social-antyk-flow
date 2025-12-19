@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, Send, Calendar, Eye, ExternalLink, Undo2, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { Loader2, Sparkles, Send, Calendar, Eye, ExternalLink, Undo2, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import { PlatformAITextDialog } from "./PlatformAITextDialog";
 import { PlatformScheduleDialog } from "./PlatformScheduleDialog";
 import { XPostPreviewDialog } from "@/components/books/XPostPreviewDialog";
@@ -34,66 +34,143 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+  const [pageInput, setPageInput] = useState<string>("1");
+  
   // Debounce state for search
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Sync page input with current page
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
   
   // Sync local state with prop
   useEffect(() => {
     setLocalSearchQuery(searchQuery);
   }, [searchQuery]);
   
-  // Debounce effect
+  // Debounce effect - reset page when search changes
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(localSearchQuery);
       onSearchChange(localSearchQuery);
+      setCurrentPage(1);
     }, 500);
     return () => clearTimeout(timer);
   }, [localSearchQuery]);
 
   const { data: contentData, isLoading } = useQuery({
-    queryKey: ["platform-content", platform, sortColumn, sortDirection, debouncedSearch],
+    queryKey: ["platform-content", platform, sortColumn, sortDirection, debouncedSearch, currentPage],
     queryFn: async () => {
-      // Fetch ALL books using pagination (Supabase has 1000 row limit)
-      const allBooks: any[] = [];
-      const batchSize = 1000;
-      let offset = 0;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const { data: batchData, error: batchError } = await supabase
-          .from("books")
-          .select(`
-            *,
-            platform_content:book_platform_content!left(*)
-          `)
-          .range(offset, offset + batchSize - 1);
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      // For code column, we need to sort numerically (code is text but contains numbers)
+      // Supabase doesn't support numeric cast in order, so we fetch ALL and sort client-side
+      if (sortColumn === "code") {
+        // Fetch ALL books using pagination (Supabase has 1000 row limit)
+        const allBooks: any[] = [];
+        const batchSize = 1000;
+        let offset = 0;
+        let hasMore = true;
         
-        if (batchError) throw batchError;
-        
-        if (batchData && batchData.length > 0) {
-          allBooks.push(...batchData);
-          offset += batchSize;
-          hasMore = batchData.length === batchSize;
-        } else {
-          hasMore = false;
+        while (hasMore) {
+          let batchQuery = supabase
+            .from("books")
+            .select(`
+              *,
+              platform_content:book_platform_content!left(*)
+            `);
+          
+          if (debouncedSearch.trim()) {
+            batchQuery = batchQuery.or(
+              `code.ilike.%${debouncedSearch}%,title.ilike.%${debouncedSearch}%`
+            );
+          }
+          
+          const { data: batchData, error: batchError } = await batchQuery.range(offset, offset + batchSize - 1);
+          
+          if (batchError) throw batchError;
+          
+          if (batchData && batchData.length > 0) {
+            allBooks.push(...batchData);
+            offset += batchSize;
+            hasMore = batchData.length === batchSize;
+          } else {
+            hasMore = false;
+          }
         }
+
+        // Transform and sort
+        let transformedData = allBooks.map((book: any) => {
+          const platformContent = book.platform_content?.find((c: any) => c.platform === platform);
+          return {
+            id: platformContent?.id || `temp-${book.id}`,
+            book_id: book.id,
+            book: book,
+            platform: platform,
+            ai_generated_text: platformContent?.ai_generated_text || null,
+            custom_text: platformContent?.custom_text || null,
+            published: platformContent?.published || false,
+            published_at: platformContent?.published_at || null,
+            auto_publish_enabled: platformContent?.auto_publish_enabled || false,
+            scheduled_publish_at: platformContent?.scheduled_publish_at || null,
+            post_id: platformContent?.post_id || null,
+            media_urls: platformContent?.media_urls || null,
+            mentions: platformContent?.mentions || null,
+            hashtags: platformContent?.hashtags || null,
+            _hasContent: !!platformContent,
+          };
+        });
+
+        // Sort numerically by code
+        transformedData.sort((a: any, b: any) => {
+          const numA = parseInt(a.book.code || "0", 10);
+          const numB = parseInt(b.book.code || "0", 10);
+          if (isNaN(numA) && isNaN(numB)) return (a.book.code || "").localeCompare(b.book.code || "");
+          if (isNaN(numA)) return 1;
+          if (isNaN(numB)) return -1;
+          return sortDirection === "asc" ? numA - numB : numB - numA;
+        });
+
+        const totalCount = transformedData.length;
+        const paginatedData = transformedData.slice(from, to + 1);
+        
+        return { items: paginatedData, totalCount };
       }
 
-      const booksData = allBooks;
-      const error = null;
+      // For other columns, use database sorting with pagination
+      let countQuery = supabase.from("books").select("*", { count: "exact", head: true });
+      let dataQuery = supabase
+        .from("books")
+        .select(`
+          *,
+          platform_content:book_platform_content!left(*)
+        `);
+
+      if (debouncedSearch.trim()) {
+        countQuery = countQuery.or(`code.ilike.%${debouncedSearch}%,title.ilike.%${debouncedSearch}%`);
+        dataQuery = dataQuery.or(`code.ilike.%${debouncedSearch}%,title.ilike.%${debouncedSearch}%`);
+      }
+
+      const { count } = await countQuery;
+
+      const { data: booksData, error } = await dataQuery
+        .order(sortColumn === "title" ? "title" : "title", { ascending: sortDirection === "asc" })
+        .range(from, to);
 
       if (error) throw error;
 
       // Transform data to include platform-specific content
-      let transformedData = booksData.map((book: any) => {
-        // Find content for current platform (if exists)
+      const transformedData = (booksData || []).map((book: any) => {
         const platformContent = book.platform_content?.find((c: any) => c.platform === platform);
-        
         return {
-          id: platformContent?.id || `temp-${book.id}`, // temporary ID for books without content
+          id: platformContent?.id || `temp-${book.id}`,
           book_id: book.id,
           book: book,
           platform: platform,
@@ -107,56 +184,20 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
           media_urls: platformContent?.media_urls || null,
           mentions: platformContent?.mentions || null,
           hashtags: platformContent?.hashtags || null,
-          _hasContent: !!platformContent, // flag to know if content exists
+          _hasContent: !!platformContent,
         };
       });
 
-      // Filter by search query if provided
-      if (debouncedSearch.trim()) {
-        transformedData = transformedData.filter((item: any) => {
-          return (
-            item.book.code?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            item.book.title?.toLowerCase().includes(debouncedSearch.toLowerCase())
-          );
+      // Sort by published status if needed
+      if (sortColumn === "published") {
+        transformedData.sort((a: any, b: any) => {
+          const aVal = a.published ? 1 : 0;
+          const bVal = b.published ? 1 : 0;
+          return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
         });
       }
 
-      // Sort the data
-      transformedData.sort((a: any, b: any) => {
-        let aVal, bVal;
-        
-        if (sortColumn === "published") {
-          aVal = a.published ? 1 : 0;
-          bVal = b.published ? 1 : 0;
-        } else if (sortColumn === "code") {
-          // Try numeric sort first, fall back to string sort
-          const aCode = a.book.code || "";
-          const bCode = b.book.code || "";
-          const aNum = parseFloat(aCode);
-          const bNum = parseFloat(bCode);
-          
-          // If both are valid numbers, compare numerically
-          if (!isNaN(aNum) && !isNaN(bNum)) {
-            aVal = aNum;
-            bVal = bNum;
-          } else {
-            // Fall back to string comparison
-            aVal = aCode;
-            bVal = bCode;
-          }
-        } else { // title
-          aVal = a.book.title || "";
-          bVal = b.book.title || "";
-        }
-
-        if (sortDirection === "asc") {
-          return aVal > bVal ? 1 : -1;
-        } else {
-          return aVal < bVal ? 1 : -1;
-        }
-      });
-
-      return transformedData;
+      return { items: transformedData, totalCount: count || 0 };
     },
   });
 
@@ -357,7 +398,8 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
   };
 
   const handleBulkGenerateAI = async () => {
-    if (!contentData || contentData.length === 0) {
+    const items = contentData?.items || [];
+    if (items.length === 0) {
       toast({
         title: "Brak książek",
         description: "Nie ma książek do wygenerowania tekstów AI",
@@ -366,7 +408,7 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
       return;
     }
 
-    const booksWithoutAI = contentData.filter((c: any) => !c.ai_generated_text);
+    const booksWithoutAI = items.filter((c: any) => !c.ai_generated_text);
     
     if (booksWithoutAI.length === 0) {
       toast({
@@ -431,8 +473,26 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
     });
   };
 
-  const selectedBook = contentData?.find((c: any) => c.book.id === selectedBookId)?.book;
-  const selectedContent = contentData?.find((c: any) => c.book.id === selectedBookId);
+  const items = contentData?.items || [];
+  const totalCount = contentData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const selectedBook = items.find((c: any) => c.book.id === selectedBookId)?.book;
+  const selectedContent = items.find((c: any) => c.book.id === selectedBookId);
+
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPageInput(e.target.value);
+  };
+
+  const handlePageInputSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const page = parseInt(pageInput);
+    if (!isNaN(page) && page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    } else {
+      setPageInput(String(currentPage));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -496,7 +556,7 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contentData?.map((content: any) => {
+            {items.map((content: any) => {
               const book = content.book;
               const isPublishing = publishingIds.has(content.id);
 
@@ -618,6 +678,45 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Strona {currentPage} z {totalPages} ({totalCount} książek)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
+              <Input
+                type="text"
+                value={pageInput}
+                onChange={handlePageInputChange}
+                className="w-16 text-center"
+                placeholder={String(currentPage)}
+              />
+              <span className="text-sm text-muted-foreground">z {totalPages}</span>
+            </form>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {selectedBook && (
         <>
