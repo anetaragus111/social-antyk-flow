@@ -35,10 +35,9 @@ serve(async (req) => {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
 
-    // TikTok OAuth scopes for video and photo posting
+    // TikTok OAuth scopes - video.upload allows draft posting
     const scopes = [
       'user.info.basic',
-      'video.publish',
       'video.upload'
     ].join(',');
 
