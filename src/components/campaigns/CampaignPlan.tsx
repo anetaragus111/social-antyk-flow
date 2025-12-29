@@ -38,6 +38,11 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
       });
 
       if (structureResponse.error) throw structureResponse.error;
+      
+      // Check for API-level errors (rate limit, auth issues)
+      if (structureResponse.data?.success === false) {
+        throw new Error(structureResponse.data.error || 'Błąd API podczas generowania struktury');
+      }
 
       const structure = structureResponse.data.structure;
       console.log("Structure generated:", structure);
@@ -54,6 +59,11 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
       });
 
       if (contentResponse.error) throw contentResponse.error;
+      
+      // Check for API-level errors (rate limit, auth issues)
+      if (contentResponse.data?.success === false) {
+        throw new Error(contentResponse.data.error || 'Błąd API podczas generowania treści');
+      }
 
       const generatedPosts = contentResponse.data.posts;
       console.log("Posts generated:", generatedPosts.length);
