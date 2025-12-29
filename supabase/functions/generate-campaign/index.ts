@@ -191,86 +191,85 @@ async function generatePostsContent(body: any, apiKey: string) {
   
   let availableBooks: any[] = [];
   
-  // If selectedBooks is provided and not empty, fetch in batches to avoid query size limits
-  if (selectedBooks && selectedBooks.length > 0) {
-    console.log(`Fetching ${selectedBooks.length} selected books in batches...`);
-    
-    // Supabase has a limit on IN query size, so we fetch in batches of 100
-    const batchSize = 100;
-    const allFetchedBooks: any[] = [];
-    
-    for (let i = 0; i < selectedBooks.length; i += batchSize) {
-      const batch = selectedBooks.slice(i, i + batchSize);
-      const { data: batchBooks, error: batchError } = await supabase
-        .from("books")
-        .select("id, title, description, sale_price, product_url, campaign_post_count")
-        .eq("exclude_from_campaigns", false)
-        .in("id", batch);
-      
-      if (batchError) {
-        console.error(`Error fetching books batch ${i / batchSize}:`, batchError);
-        continue;
+  // CRITICAL: Only use selected books - no fallback to random books
+  if (!selectedBooks || selectedBooks.length === 0) {
+    console.error("No books selected for campaign");
+    return new Response(
+      JSON.stringify({
+        success: false,
+        errorCode: "NO_BOOKS",
+        error: "Nie wybrano żadnych książek do kampanii. Proszę wybrać co najmniej jedną książkę.",
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
-      
-      if (batchBooks) {
-        allFetchedBooks.push(...batchBooks);
-      }
-    }
-    
-    // Sort and limit after fetching all batches
-    availableBooks = allFetchedBooks
-      .sort((a, b) => {
-        // Sort by sale_price DESC (nulls last)
-        if (a.sale_price !== b.sale_price) {
-          if (a.sale_price === null) return 1;
-          if (b.sale_price === null) return -1;
-          return b.sale_price - a.sale_price;
-        }
-        // Then by campaign_post_count ASC
-        return (a.campaign_post_count || 0) - (b.campaign_post_count || 0);
-      })
-      .slice(0, salesPostsCount);
-      
-  } else {
-    // Fallback: only products if no selection
-    const { data: fallbackBooks, error: fallbackError } = await supabase
+    );
+  }
+
+  console.log(`Fetching ${selectedBooks.length} selected books...`);
+  
+  // Fetch selected books in batches
+  const fetchBatchSize = 100;
+  const allFetchedBooks: any[] = [];
+  
+  for (let i = 0; i < selectedBooks.length; i += fetchBatchSize) {
+    const batch = selectedBooks.slice(i, i + fetchBatchSize);
+    const { data: batchBooks, error: batchError } = await supabase
       .from("books")
-      .select("id, title, description, sale_price, product_url, campaign_post_count")
-      .eq("exclude_from_campaigns", false)
-      .eq("is_product", true)
-      .order("sale_price", { ascending: false, nullsFirst: false })
-      .order("campaign_post_count", { ascending: true })
-      .order("last_campaign_date", { ascending: true, nullsFirst: true })
-      .limit(salesPostsCount);
+      .select("id, title, description, sale_price, product_url, campaign_post_count, author")
+      .in("id", batch);
     
-    if (fallbackError) {
-      console.error("Error fetching fallback books:", fallbackError);
-      throw new Error("Failed to fetch books for campaign");
+    if (batchError) {
+      console.error(`Error fetching books batch ${i / fetchBatchSize}:`, batchError);
+      continue;
     }
     
-    availableBooks = fallbackBooks || [];
+    if (batchBooks) {
+      allFetchedBooks.push(...batchBooks);
+    }
   }
 
-  console.log(`Found ${availableBooks.length} available books for ${salesPostsCount} sales posts`);
-
-  // Fetch all books with descriptions for content context
-  const { data: allBooksWithDescriptions, error: allBooksError } = await supabase
-    .from("books")
-    .select("title, description")
-    .eq("exclude_from_campaigns", false)
-    .not("description", "is", null)
-    .limit(100);
-
-  if (allBooksError) {
-    console.error("Error fetching books descriptions:", allBooksError);
+  if (allFetchedBooks.length === 0) {
+    console.error("No books found in database for selected IDs");
+    return new Response(
+      JSON.stringify({
+        success: false,
+        errorCode: "BOOKS_NOT_FOUND",
+        error: "Wybrane książki nie zostały znalezione w bazie danych.",
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 
-  // Build book context for content generation
-  const booksContext = (allBooksWithDescriptions || [])
-    .map((book: any) => `- ${book.title}: ${book.description}`)
+  // Sort by price DESC - if more books than sales posts, use most expensive ones
+  availableBooks = allFetchedBooks.sort((a, b) => {
+    if (a.sale_price !== b.sale_price) {
+      if (a.sale_price === null) return 1;
+      if (b.sale_price === null) return -1;
+      return b.sale_price - a.sale_price;
+    }
+    return 0;
+  });
+
+  // If more books than sales posts, limit to most expensive ones
+  if (availableBooks.length > salesPostsCount) {
+    console.log(`More books (${availableBooks.length}) than sales posts (${salesPostsCount}), using ${salesPostsCount} most expensive`);
+    availableBooks = availableBooks.slice(0, salesPostsCount);
+  }
+
+  console.log(`Using ${availableBooks.length} books for ${salesPostsCount} sales posts`);
+  console.log("Selected books:", availableBooks.map(b => b.title).join(", "));
+
+  // Build book context ONLY from selected books for trivia posts
+  const booksContext = availableBooks
+    .map((book: any) => `- "${book.title}"${book.author ? ` autorstwa ${book.author}` : ""}: ${book.description || 'Brak opisu'}`)
     .join('\n');
 
-  console.log(`Loaded ${allBooksWithDescriptions?.length || 0} book descriptions for content context`);
+  console.log(`Built context from ${availableBooks.length} selected books for trivia generation`);
 
   // Fetch content history for deduplication (last 6 months)
   const sixMonthsAgo = new Date();
@@ -296,61 +295,57 @@ async function generatePostsContent(body: any, apiKey: string) {
     }
   }
 
-  // Platform-specific prompts
-  const getFacebookPrompts = (): Record<string, string> => ({
-    trivia: `Stwórz bogatą w treść ciekawostkę o polskiej historii, literaturze patriotycznej lub bohaterach narodowych. 
-Post może mieć do ${maxTextLength} znaków, więc wykorzystaj przestrzeń na:
-- Szczegółowy opis historyczny z konkretnymi datami i faktami
-- Ciekawe anegdoty i mniej znane szczegóły
-- Emocjonalne połączenie z polską tożsamością
-- Storytelling - opowiedz historię w angażujący sposób
-- Zachęcenie do komentowania i dzielenia się własnymi przemyśleniami
-Zakończ linkiem: https://sklep.antyk.org.pl
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
-    quiz: `Stwórz rozbudowaną zagadkę o polskiej historii, symbolach narodowych lub ważnych wydarzeniach.
-Post może mieć do ${maxTextLength} znaków, więc:
-- Stwórz intrygujące wprowadzenie do zagadki
-- Dodaj kontekst historyczny
-- Podaj kilka wskazówek lub ciekawych faktów związanych z tematem
-- Zachęć do dyskusji i dzielenia się odpowiedziami w komentarzach
-- Stwórz atmosferę przyjaźnie rywalizacji
-Zakończ linkiem: https://sklep.antyk.org.pl
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
-    event: `Napisz bogaty w szczegóły post o polskiej rocznicy, święcie narodowym lub ważnym wydarzeniu historycznym.
-Post może mieć do ${maxTextLength} znaków, więc możesz:
-- Przedstawić szeroki kontekst historyczny wydarzenia
-- Opowiedzieć o konkretnych postaciach i ich rolach
-- Dodać mniej znane fakty i ciekawostki
-- Pokazać znaczenie tego wydarzenia dla współczesności
-- Zachęcić do refleksji i dyskusji
-- Zaproponować sposoby uczczenia tej rocznicy
-Zakończ linkiem: https://sklep.antyk.org.pl
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
+  // Platform-specific prompts - updated to reference ONLY selected books
+  const getFacebookPrompts = (booksList: string): Record<string, string> => ({
+    trivia: `Stwórz ciekawostkę powiązaną z tematyką JEDNEJ z tych książek/produktów:
+${booksList}
+
+Post może mieć do ${maxTextLength} znaków. Powinien:
+- Opowiadać o temacie, okresie historycznym, postaci lub wydarzeniu związanym z jedną z powyższych książek
+- NIE wspominać bezpośrednio tytułu książki - to ma być ciekawostka, która wzbudzi zainteresowanie tematem
+- Być fascynujący i angażujący
+- Kończyć się linkiem: https://sklep.antyk.org.pl
+
+WAŻNE: 
+- NIE używaj placeholderów w nawiasach kwadratowych typu [link], [tytuł] itp.
+- NIE dodawaj informacji o liczbie znaków do treści posta.
+- Pisz KONKRETNE fakty, nie ogólniki.`,
     sales: "Promocja konkretnej książki - szczegóły zostaną dodane dynamicznie",
   });
 
-  const getXPrompts = (): Record<string, string> => ({
-    trivia: "Stwórz fascynującą ciekawostkę o polskiej historii, literaturze patriotycznej lub bohaterach narodowych. Powinna być krótka (max 240 znaków), inspirująca i budująca dumę narodową. Zakończ linkiem: https://sklep.antyk.org.pl. WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.",
-    quiz: "Stwórz intrygującą zagadkę o polskiej historii, symbolach narodowych lub ważnych wydarzeniach. Zachęć do interakcji (max 240 znaków). Zakończ linkiem: https://sklep.antyk.org.pl. WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.",
-    event: "Napisz o polskiej rocznicy, święcie narodowym lub ważnym wydarzeniu historycznym (max 240 znaków). Podkreśl znaczenie dla polskiej tożsamości. Zakończ linkiem: https://sklep.antyk.org.pl. WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.",
+  const getXPrompts = (booksList: string): Record<string, string> => ({
+    trivia: `Stwórz krótką ciekawostkę (max 240 znaków) powiązaną z tematyką JEDNEJ z tych książek/produktów:
+${booksList}
+
+Ciekawostka powinna:
+- Dotyczyć tematu, okresu historycznego lub postaci związanej z jedną z powyższych książek
+- NIE wspominać bezpośrednio tytułu - ma wzbudzić zainteresowanie tematem
+- Kończyć się linkiem: https://sklep.antyk.org.pl
+
+WAŻNE: NIE używaj placeholderów w nawiasach kwadratowych. NIE dodawaj informacji o liczbie znaków.`,
     sales: "Promocja konkretnej książki - szczegóły zostaną dodane dynamicznie",
   });
 
-  const categoryPrompts: Record<string, string> = hasFacebook && !hasX ? getFacebookPrompts() : getXPrompts();
+  const categoryPrompts: Record<string, string> = hasFacebook && !hasX 
+    ? getFacebookPrompts(booksContext) 
+    : getXPrompts(booksContext);
 
   const posts = [];
   let salesBookIndex = 0;
   
-  // Build a map of position -> book for trivia posts to reference
+  // Build a map of position -> book for sales posts WITH ROTATION
   const positionToBookMap: Record<number, any> = {};
   let tempSalesIndex = 0;
   
   structure.forEach((item: any) => {
-    if (item.type === 'sales' && availableBooks && tempSalesIndex < availableBooks.length) {
-      positionToBookMap[item.position] = availableBooks[tempSalesIndex];
+    if (item.type === 'sales') {
+      // ROTATION: use modulo to cycle through books when we have fewer books than sales posts
+      positionToBookMap[item.position] = availableBooks[tempSalesIndex % availableBooks.length];
       tempSalesIndex++;
     }
   });
+
+  console.log("Sales post book assignments:", Object.entries(positionToBookMap).map(([pos, book]) => `Position ${pos}: ${book.title}`).join(", "));
 
   // Generate posts in batches of 5 to avoid rate limits
   const batchSize = 5;
@@ -363,50 +358,50 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
         let prompt = categoryPrompts[item.category] || categoryPrompts["trivia"];
         let bookData = null;
 
-        // For sales posts, use actual book data
-        if (item.category === "sales" && availableBooks && salesBookIndex < availableBooks.length) {
-          bookData = availableBooks[salesBookIndex];
+        // For sales posts, use book with rotation
+        if (item.category === "sales") {
+          // ROTATION: use modulo to cycle through books
+          bookData = availableBooks[salesBookIndex % availableBooks.length];
           salesBookIndex++;
 
           if (hasFacebook && !hasX) {
             // Rich Facebook post for sales
-            prompt = `Stwórz bogaty w treść post promocyjny o tej książce patriotycznej:
+            prompt = `Stwórz bogaty w treść post promocyjny o tym produkcie:
 Tytuł: ${bookData.title}
+${bookData.author ? `Autor: ${bookData.author}` : ""}
 ${bookData.description ? `Opis: ${bookData.description}` : ""}
-${bookData.sale_price ? `Cena promocyjna: ${bookData.sale_price} zł (WAŻNE: podaj DOKŁADNIE tę cenę, bez zaokrągleń!)` : ""}
+${bookData.sale_price ? `Cena: ${bookData.sale_price} zł` : ""}
+Link do produktu: ${bookData.product_url}
 
-Post może mieć do ${maxTextLength} znaków, więc wykorzystaj przestrzeń na:
-- Rozbudowane wprowadzenie - dlaczego ta książka jest wyjątkowa
-- Szczegółowy opis treści i wartości patriotycznych, które niesie
-- Kim jest autor i dlaczego warto mu zaufać
-- Dla kogo jest ta książka (docelowy czytelnik)
-- Jakie konkretne korzyści odniesie czytelnik
-- Storytelling - opowiedz historię związaną z książką lub jej tematem
-- Emocjonalne połączenie z polską tożsamością i wartościami
-- Wyraźne call-to-action zachęcające do zakupu
-- Zawierać DOKŁADNĄ cenę bez zmian i zaokrągleń
-- Kończyć się linkiem: ${bookData.product_url}
+Post może mieć do ${maxTextLength} znaków. Powinien:
+- Przedstawić produkt w atrakcyjny sposób
+- Podkreślić wartości patriotyczne (jeśli dotyczy)
+- Zachęcić do zakupu
+- Kończyć się DOKŁADNIE tym linkiem: ${bookData.product_url}
 
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.
-Pisz w sposób angażujący, osobisty i przekonujący. To ma być mini-recenzja i zachęta, nie tylko suchy opis.`;
+KRYTYCZNE ZASADY:
+- Używaj TYLKO podanych powyżej danych (tytuł, autor, opis, cena, link)
+- NIE wymyślaj żadnych informacji, których nie podano
+- NIE używaj placeholderów w nawiasach kwadratowych typu [link], [autor], [tytuł] itp.
+- Jeśli nie ma opisu - skup się na tytule i tematyce
+- NIE dodawaj informacji o liczbie znaków do treści posta`;
           } else {
             // Short post for X or mixed platforms
-            prompt = `Stwórz atrakcyjny post promocyjny o tej książce patriotycznej:
+            prompt = `Stwórz krótki post promocyjny (max 240 znaków ŁĄCZNIE z linkiem) o tym produkcie:
 Tytuł: ${bookData.title}
-${bookData.description ? `Opis: ${bookData.description}` : ""}
-${bookData.sale_price ? `Cena promocyjna: ${bookData.sale_price} zł (WAŻNE: podaj DOKŁADNIE tę cenę, bez zaokrągleń!)` : ""}
+${bookData.author ? `Autor: ${bookData.author}` : ""}
+${bookData.sale_price ? `Cena: ${bookData.sale_price} zł` : ""}
+Link: ${bookData.product_url}
 
-Post powinien:
-- Być krótki (max 240 znaków ŁĄCZNIE z linkiem)
-- Podkreślać wartości patriotyczne
-- Zachęcać do zakupu
-- Zawierać DOKŁADNĄ cenę bez zmian i zaokrągleń
-- Kończyć się linkiem: ${bookData.product_url}
-
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`;
+KRYTYCZNE ZASADY:
+- Używaj TYLKO podanych powyżej danych
+- NIE wymyślaj informacji, których nie podano
+- NIE używaj placeholderów w nawiasach kwadratowych
+- Kończyć się DOKŁADNIE tym linkiem: ${bookData.product_url}
+- NIE dodawaj informacji o liczbie znaków`;
           }
         } else if (item.type === 'content' && item.category === 'trivia') {
-          // Find nearest sales post to reference
+          // For trivia, find the nearest sales post's book to create related content
           let nearestBook = null;
           let minDistance = Infinity;
           
@@ -418,19 +413,42 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`;
             }
           }
           
+          // If we found a nearby book, create trivia specifically about its topic
           if (nearestBook) {
-            // Create trivia specifically related to this book
-            const triviaContext = `Stwórz ciekawostkę, która NATURALNIE nawiązuje do tematyki tej książki:
+            const triviaContext = `Stwórz ciekawostkę BEZPOŚREDNIO związaną z tematyką tego produktu:
 Tytuł: ${nearestBook.title}
+${nearestBook.author ? `Autor: ${nearestBook.author}` : ""}
 ${nearestBook.description ? `Opis: ${nearestBook.description}` : ""}
 
-WAŻNE: 
-- NIE wspominaj bezpośrednio tytułu książki ani autora
-- Stwórz ciekawostkę o temacie/okresie/postaci, o których traktuje ta książka
-- Ciekawostka powinna być na tyle związana z książką, że czytelnicy zainteresowani tą ciekawostką mogą być zainteresowani książką
-- Ciekawostka powinna być samodzielna i wartościowa, nie tylko "wstępem" do sprzedaży\n\n`;
-            
-            prompt = triviaContext + prompt;
+WAŻNE:
+- NIE wspominaj bezpośrednio tytułu produktu ani autora
+- Stwórz ciekawostkę o temacie/okresie/postaci, o których traktuje ten produkt
+- Ciekawostka ma wzbudzić zainteresowanie tematem, żeby czytelnik chciał poznać więcej
+- Musi być samodzielna i wartościowa, nie tylko "wstępem" do sprzedaży
+- NIE używaj placeholderów w nawiasach kwadratowych
+- Zakończ linkiem: https://sklep.antyk.org.pl
+
+`;
+            prompt = triviaContext + (hasFacebook && !hasX 
+              ? `Post może mieć do ${maxTextLength} znaków. NIE dodawaj informacji o liczbie znaków do treści.`
+              : `Max 240 znaków ŁĄCZNIE z linkiem. NIE dodawaj informacji o liczbie znaków do treści.`);
+          } else {
+            // Fallback: use random book from selected ones
+            const randomBook = availableBooks[Math.floor(Math.random() * availableBooks.length)];
+            const triviaContext = `Stwórz ciekawostkę związaną z tematyką tego produktu:
+Tytuł: ${randomBook.title}
+${randomBook.description ? `Opis: ${randomBook.description}` : ""}
+
+WAŻNE:
+- NIE wspominaj bezpośrednio tytułu produktu
+- Stwórz ciekawostkę o temacie, o którym traktuje ten produkt
+- NIE używaj placeholderów w nawiasach kwadratowych
+- Zakończ linkiem: https://sklep.antyk.org.pl
+
+`;
+            prompt = triviaContext + (hasFacebook && !hasX 
+              ? `Post może mieć do ${maxTextLength} znaków. NIE dodawaj informacji o liczbie znaków do treści.`
+              : `Max 240 znaków ŁĄCZNIE z linkiem. NIE dodawaj informacji o liczbie znaków do treści.`);
           }
 
           // Add deduplication instruction for content posts
@@ -442,13 +460,13 @@ WAŻNE:
               const categoryHistory = history.filter(h => h.category === item.category);
               if (categoryHistory.length > 0) {
                 const topics = categoryHistory.map(h => h.topic_summary).join('\n- ');
-                deduplicationNote += `WAŻNE! UNIKAJ tych tematów, które były już użyte na ${platformId} w ostatnich 6 miesiącach:\n- ${topics}\n\n`;
+                deduplicationNote += `UNIKAJ tych tematów, które były już użyte na ${platformId}:\n- ${topics}\n\n`;
               }
             }
           }
           
           if (deduplicationNote.trim()) {
-            prompt += deduplicationNote + 'Wygeneruj całkowicie NOWY, UNIKALNY temat, który nie pokrywa się z powyższymi.';
+            prompt += deduplicationNote + 'Wygeneruj NOWY, UNIKALNY temat.';
           }
         }
 
@@ -464,13 +482,25 @@ WAŻNE:
               {
                 role: "system",
                 content: hasFacebook && !hasX
-                  ? "Jesteś ekspertem od content marketingu dla księgarni. Piszesz bogate w treść, angażujące posty na Facebook, które łączą storytelling z wartościami patriotycznymi. Twoje posty są szczegółowe, emocjonalne i zachęcają do interakcji."
-                  : "Jesteś ekspertem od content marketingu dla księgarni. Piszesz krótkie, angażujące posty na Twitter/X.",
+                  ? `Jesteś ekspertem od content marketingu dla księgarni patriotycznej. Piszesz bogate w treść, angażujące posty na Facebook.
+
+BEZWZGLĘDNE ZASADY:
+1. NIGDY nie używaj placeholderów w nawiasach kwadratowych typu [link], [tytuł], [autor], [cena] itp.
+2. Używaj TYLKO konkretnych danych, które zostały Ci podane.
+3. Jeśli czegoś nie wiesz - pomiń to, NIE wymyślaj.
+4. Każdy post musi być kompletny i gotowy do publikacji bez żadnych edycji.`
+                  : `Jesteś ekspertem od content marketingu dla księgarni patriotycznej. Piszesz krótkie, angażujące posty na Twitter/X (max 240 znaków).
+
+BEZWZGLĘDNE ZASADY:
+1. NIGDY nie używaj placeholderów w nawiasach kwadratowych typu [link], [tytuł], [autor] itp.
+2. Używaj TYLKO konkretnych danych, które zostały Ci podane.
+3. Jeśli czegoś nie wiesz - pomiń to, NIE wymyślaj.
+4. Każdy post musi być kompletny i gotowy do publikacji bez żadnych edycji.`,
               },
               { role: "user", content: prompt },
             ],
             temperature: 0.8,
-            max_tokens: 300,
+            max_tokens: hasFacebook && !hasX ? 600 : 300,
           }),
         });
 
@@ -490,7 +520,28 @@ WAŻNE:
         }
 
         const data = await response.json();
-        const text = data.choices[0].message.content.trim();
+        let text = data.choices[0].message.content.trim();
+
+        // VALIDATION: Check for and warn about placeholder patterns
+        const placeholderPattern = /\[[^\]]+\]/g;
+        const placeholders = text.match(placeholderPattern);
+        if (placeholders) {
+          console.warn(`WARNING: Post ${item.position} contains placeholders: ${placeholders.join(', ')}`);
+          console.warn(`Original text: ${text}`);
+          
+          // Try to clean up common placeholders
+          text = text
+            .replace(/\[link do księgarni\]/gi, 'https://sklep.antyk.org.pl')
+            .replace(/\[link\]/gi, bookData?.product_url || 'https://sklep.antyk.org.pl')
+            .replace(/\[Tytuł książki\]/gi, bookData?.title || '')
+            .replace(/\[Autor\]/gi, bookData?.author || '')
+            .replace(/\[cena\]/gi, bookData?.sale_price ? `${bookData.sale_price} zł` : '');
+          
+          // Remove any remaining placeholders
+          text = text.replace(/\[[^\]]+\]/g, '');
+          
+          console.log(`Cleaned text: ${text}`);
+        }
 
         return {
           position: item.position,
@@ -562,7 +613,7 @@ async function generateSimpleCampaign(body: any, apiKey: string) {
 - Związane z książkami, autorami lub literaturą
 - Napisane w przystępny, przyjazny sposób
 - Zakończone zaproszeniem do odwiedzenia sklepu
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta. NIE używaj placeholderów w nawiasach kwadratowych.`,
 
     quiz: `Jesteś kreatorem quizów literackich. Twórz angażujące zagadki i pytania:
 - Pytanie jest intrygujące i ma tło (nie tylko "zgadnij autora")
@@ -570,7 +621,7 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 - Zachęcaj do interakcji (np. "Odpowiedź w komentarzach!")
 - Pytania powinny być ciekawe dla miłośników książek
 - Dodaj link do sklepu na końcu
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta. NIE używaj placeholderów w nawiasach kwadratowych.`,
 
     recommendation: `Jesteś pasjonatem książek polecającym lektury. Twórz rekomendacje które:
 - Opisują książkę w intrygujący sposób
@@ -578,7 +629,7 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 - Max 250 znaków z URL-em
 - Używają emocjonalnego języka
 - Zachęcają do zakupu
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta. NIE używaj placeholderów w nawiasach kwadratowych.`,
 
     event: `Tworzysz posty o wydarzeniach literackich. Posty powinny:
 - Informować o wydarzeniach, rocznicach, świętach literackich
@@ -586,7 +637,7 @@ WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
 - Max 250 znaków z URL-em
 - Łączyć wydarzenie z ofertą księgarni
 - Zachęcać do odwiedzin
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.`,
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta. NIE używaj placeholderów w nawiasach kwadratowych.`,
   };
 
   const userPrompt = bookData
@@ -602,7 +653,7 @@ Każdy post powinien:
 - Kończyć się linkiem do produktu
 - Nie przekraczać 250 znaków ŁĄCZNIE z linkiem
 
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta. NIE używaj placeholderów w nawiasach kwadratowych.
 
 Zwróć TYLKO tablicę JSON z postami w formacie:
 [
@@ -620,7 +671,7 @@ Każdy post powinien:
 - Nie przekraczać 250 znaków ŁĄCZNIE z linkiem
 - Promować różne aspekty księgarni
 
-WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta.
+WAŻNE: NIE dodawaj informacji o liczbie znaków do treści posta. NIE używaj placeholderów w nawiasach kwadratowych.
 
 Zwróć TYLKO tablicę JSON z postami w formacie:
 [
