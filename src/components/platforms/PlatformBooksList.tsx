@@ -409,12 +409,18 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
       return;
     }
 
-    const booksWithoutAI = items.filter((c: any) => !c.ai_generated_text);
+    // Check platform-specific AI text from books table
+    const booksWithoutAI = items.filter((c: any) => {
+      const platformAiText = platform === 'x' ? c.book.ai_text_x : 
+                             platform === 'facebook' ? c.book.ai_text_facebook : 
+                             null;
+      return !platformAiText;
+    });
     
     if (booksWithoutAI.length === 0) {
       toast({
         title: "Wszystkie książki mają teksty AI",
-        description: "Wszystkie książki już mają wygenerowane teksty AI",
+        description: "Wszystkie książki już mają wygenerowane teksty AI dla tej platformy",
       });
       return;
     }
@@ -439,23 +445,19 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
 
         if (error) throw error;
 
-        const updateData: any = {
-          ai_generated_text: data.salesText,
-        };
+        // Update book table with platform-specific AI text
+        const updateField = platform === 'x' ? 'ai_text_x' : 
+                           platform === 'facebook' ? 'ai_text_facebook' : 
+                           'ai_generated_text';
+        
+        const { error: updateError } = await supabase
+          .from("books")
+          .update({ [updateField]: data.salesText })
+          .eq("id", content.book.id);
 
-        // Always ensure content exists for bulk generation
-        if (content._hasContent && !content.id.startsWith('temp-')) {
-          await (supabase as any)
-            .from("book_platform_content")
-            .update(updateData)
-            .eq("id", content.id);
-        } else {
-          await (supabase as any).from("book_platform_content").insert({
-            book_id: content.book.id,
-            platform,
-            ...updateData,
-          });
-        }
+        if (updateError) throw updateError;
+
+        // Content record is no longer needed for AI text storage
 
         successCount++;
       } catch (error) {
@@ -561,10 +563,14 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
               const book = content.book;
               const isPublishing = publishingIds.has(content.id);
               
-              // For video-only platforms, only require video; for others require AI text
+              // For video-only platforms, only require video; for others require AI text from books table
               const isVideoOnlyPlatform = platformRequiresVideo(platform as PlatformId);
               const hasVideo = !!(book.video_url || book.video_storage_path);
-              const hasAiText = !!content.ai_generated_text;
+              // Check platform-specific AI text from books table
+              const platformAiText = platform === 'x' ? book.ai_text_x : 
+                                     platform === 'facebook' ? book.ai_text_facebook : 
+                                     null;
+              const hasAiText = !!platformAiText;
               const canPublish = isVideoOnlyPlatform ? hasVideo : hasAiText;
 
               return (
@@ -673,7 +679,7 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                         size="sm"
                         variant="outline"
                         onClick={() => handlePreview(book.id)}
-                        disabled={!hasAiText && !isVideoOnlyPlatform}
+                        disabled={!platformAiText && !isVideoOnlyPlatform}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

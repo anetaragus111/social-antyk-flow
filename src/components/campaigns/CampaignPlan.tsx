@@ -142,11 +142,21 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
         const price = book.sale_price || book.promotional_price;
         const url = book.product_url || 'https://sklep.antyk.org.pl';
         
-        // Priority for text: AI generated > description > empty
-        // 1. If AI generated text exists, use it
-        // 2. If only description exists, use it
-        // 3. If neither exists, leave empty
-        const aiText = book.ai_generated_text || '';
+        // Priority for text: Platform-specific AI > legacy AI > description > empty
+        // Get primary platform for text selection
+        const primaryPlatform = config.targetPlatforms?.[0] || 'x';
+        
+        // Get platform-specific AI text
+        let aiText = '';
+        if (primaryPlatform === 'x' && book.ai_text_x) {
+          aiText = book.ai_text_x;
+        } else if (primaryPlatform === 'facebook' && book.ai_text_facebook) {
+          aiText = book.ai_text_facebook;
+        } else if (book.ai_generated_text) {
+          // Fallback to legacy AI text
+          aiText = book.ai_generated_text;
+        }
+        
         const description = book.description || '';
         
         // Determine which text to use: AI > description > empty
