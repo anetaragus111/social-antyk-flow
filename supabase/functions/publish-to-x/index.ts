@@ -700,9 +700,11 @@ Deno.serve(async (req) => {
         }
 
         let tweetText;
-        if (book.ai_generated_text) {
-          tweetText = `${book.ai_generated_text}\n\n${book.product_url}\n\n(ai)`;
-          console.log("Using AI-generated text from database");
+        // Use platform-specific AI text (ai_text_x) first, then fallback to legacy ai_generated_text
+        const aiTextForX = book.ai_text_x || book.ai_generated_text;
+        if (aiTextForX) {
+          tweetText = `${aiTextForX}\n\n${book.product_url}\n\n(ai)`;
+          console.log("Using AI-generated text for X from database");
         } else if (customText) {
           tweetText = `${customText}\n\n(ai)`;
           console.log("Using custom text parameter");

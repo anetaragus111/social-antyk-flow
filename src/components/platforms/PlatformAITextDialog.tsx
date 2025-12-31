@@ -119,36 +119,25 @@ export const PlatformAITextDialog = ({
         throw new Error("Nieprawidłowy ID książki. Odśwież stronę i spróbuj ponownie.");
       }
 
-      const isExistingValid = typeof existingContent?.id === 'string' && uuidRegex.test(existingContent.id);
+      // Determine which column to update based on platform
+      const updateField = platform === 'x' ? 'ai_text_x' : 
+                         platform === 'facebook' ? 'ai_text_facebook' : 
+                         'ai_generated_text';
 
-      if (isExistingValid) {
-        // Update existing content (only when existingContent.id is a valid UUID)
-        const { error } = await (supabase as any)
-          .from("book_platform_content")
-          .update({
-            ai_generated_text: customText,
-            custom_text: customText,
-          })
-          .eq("id", existingContent.id);
-        if (error) throw error;
-      } else {
-        // Create new content when there is no valid existing record (handles temp-* IDs)
-        const { error } = await (supabase as any)
-          .from("book_platform_content")
-          .insert({
-            book_id: book.id,
-            platform: platform,
-            ai_generated_text: customText,
-            custom_text: customText,
-          });
-        if (error) throw error;
-      }
+      // Update books table with platform-specific AI text
+      const { error } = await supabase
+        .from("books")
+        .update({ [updateField]: customText })
+        .eq("id", book.id);
+      
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-content"] });
+      queryClient.invalidateQueries({ queryKey: ["books"] });
       toast({
         title: "Zapisano tekst",
-        description: "Tekst został zapisany pomyślnie",
+        description: `Tekst AI dla ${platformNames[platform]} został zapisany`,
       });
       onOpenChange(false);
       setCustomText("");
@@ -224,13 +213,25 @@ export const PlatformAITextDialog = ({
           </div>
 
           {/* Existing text info */}
-          {existingContent?.ai_generated_text && !customText && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                Ta książka ma już wygenerowany tekst. Możesz go edytować lub wygenerować nowy.
-              </p>
-            </div>
-          )}
+          {(() => {
+            const existingPlatformText = platform === 'x' ? book.ai_text_x : 
+                                         platform === 'facebook' ? book.ai_text_facebook : 
+                                         null;
+            return existingPlatformText && !customText ? (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                  Ta książka ma już wygenerowany tekst dla {platformNames[platform]}. Możesz go edytować lub wygenerować nowy.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCustomText(existingPlatformText)}
+                >
+                  Załaduj istniejący tekst
+                </Button>
+              </div>
+            ) : null;
+          })()}
         </div>
 
         <DialogFooter>

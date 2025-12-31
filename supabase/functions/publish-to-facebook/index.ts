@@ -159,9 +159,10 @@ Deno.serve(async (req) => {
 
       productUrl = book.product_url || '';
 
-      // Use AI generated text or create a simple post
-      if (book.ai_generated_text) {
-        postText = book.ai_generated_text;
+      // Use platform-specific AI text (ai_text_facebook) first, then fallback to legacy ai_generated_text
+      const aiTextForFacebook = book.ai_text_facebook || book.ai_generated_text;
+      if (aiTextForFacebook) {
+        postText = aiTextForFacebook;
       } else {
         const price = book.promotional_price || book.sale_price;
         postText = `📚 ${book.title}\n\n💰 Cena: ${price} zł\n\n🔗 Sprawdź szczegóły: ${productUrl}`;

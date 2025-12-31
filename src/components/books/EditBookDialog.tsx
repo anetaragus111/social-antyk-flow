@@ -21,6 +21,8 @@ const bookSchema = z.object({
   description: z.string().optional(),
   product_url: z.string().url("Nieprawidłowy URL").optional().or(z.literal("")),
   stock_status: z.string().optional(),
+  ai_text_x: z.string().optional(),
+  ai_text_facebook: z.string().optional(),
 });
 
 type BookFormData = z.infer<typeof bookSchema>;
@@ -52,6 +54,8 @@ export const EditBookDialog = ({ open, onOpenChange, book, onSuccess }: EditBook
       description: "",
       product_url: "",
       stock_status: "",
+      ai_text_x: "",
+      ai_text_facebook: "",
     },
   });
 
@@ -67,6 +71,8 @@ export const EditBookDialog = ({ open, onOpenChange, book, onSuccess }: EditBook
         description: book.description || "",
         product_url: book.product_url || "",
         stock_status: book.stock_status || "",
+        ai_text_x: (book as any).ai_text_x || "",
+        ai_text_facebook: (book as any).ai_text_facebook || "",
       });
       setVideoUrl((book as any).video_url || null);
       setVideoStoragePath((book as any).video_storage_path || null);
@@ -201,6 +207,8 @@ export const EditBookDialog = ({ open, onOpenChange, book, onSuccess }: EditBook
         stock_status: data.stock_status || null,
         video_url: videoUrl,
         video_storage_path: videoStoragePath,
+        ai_text_x: data.ai_text_x || null,
+        ai_text_facebook: data.ai_text_facebook || null,
       };
 
       // Handle image URL - upload to storage if it's a new URL
@@ -453,6 +461,52 @@ export const EditBookDialog = ({ open, onOpenChange, book, onSuccess }: EditBook
                 Wideo będzie używane dla platform obsługujących tylko wideo (TikTok, YouTube)
               </p>
             </div>
+
+            {/* AI Text for X */}
+            <FormField
+              control={form.control}
+              name="ai_text_x"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tekst AI dla X (Twitter)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Tekst sprzedażowy dla platformy X (max 280 znaków)" 
+                      className="min-h-[80px]"
+                      maxLength={280}
+                      {...field} 
+                    />
+                  </FormControl>
+                  <div className="text-xs text-muted-foreground text-right">
+                    {(field.value?.length || 0)} / 280 znaków
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* AI Text for Facebook */}
+            <FormField
+              control={form.control}
+              name="ai_text_facebook"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tekst AI dla Facebook</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Tekst sprzedażowy dla platformy Facebook (max 2000 znaków)" 
+                      className="min-h-[100px]"
+                      maxLength={2000}
+                      {...field} 
+                    />
+                  </FormControl>
+                  <div className="text-xs text-muted-foreground text-right">
+                    {(field.value?.length || 0)} / 2000 znaków
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
