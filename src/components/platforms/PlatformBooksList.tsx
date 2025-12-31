@@ -611,16 +611,14 @@ export const PlatformBooksList = ({ platform, searchQuery, onSearchChange }: Pla
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {!content.published && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSchedule(book.id, content.id)}
-                          disabled={!canPublish}
-                        >
-                          <Calendar className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSchedule(book.id, content.id)}
+                        disabled={!canPublish}
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant={canPublish ? "destructive" : "outline"}
