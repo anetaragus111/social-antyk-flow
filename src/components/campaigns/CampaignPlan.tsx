@@ -17,7 +17,8 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
   const [plan, setPlan] = useState<any>(null);
 
   const totalPosts = config.durationDays * config.postsPerDay;
-  const salesPosts = Math.floor(totalPosts * 0.8);
+  // If only 1 post, make it a sales post
+  const salesPosts = totalPosts === 1 ? 1 : Math.floor(totalPosts * 0.8);
   const contentPosts = totalPosts - salesPosts;
   const useAI = config.useAI !== false; // Default to true
 
@@ -136,35 +137,47 @@ export const CampaignPlan = ({ config, onComplete, onBack }: CampaignPlanProps) 
         const book = books[bookIndex];
         
         let text = '';
+        const title = book.title || '';
+        const author = book.author || '';
+        const price = book.sale_price || book.promotional_price;
+        const url = book.product_url || 'https://sklep.antyk.org.pl';
+        
+        // Priority for text: AI generated > description > empty
+        // 1. If AI generated text exists, use it
+        // 2. If only description exists, use it
+        // 3. If neither exists, leave empty
+        const aiText = book.ai_generated_text || '';
+        const description = book.description || '';
+        
+        // Determine which text to use: AI > description > empty
+        let contentText = '';
+        if (aiText && aiText.length > 0) {
+          contentText = aiText;
+        } else if (description && description.length > 0) {
+          contentText = description;
+        }
         
         if (item.type === 'sales') {
-          // Sales post - use book description or generate simple promo
-          const title = book.title || '';
-          const author = book.author || '';
-          const description = book.description || '';
-          const price = book.sale_price || book.promotional_price;
-          const url = book.product_url || 'https://sklep.antyk.org.pl';
-          
-          // Create a simple promotional text
-          if (description && description.length > 50) {
-            // Use first 200 chars of description
-            const shortDesc = description.substring(0, 200).trim();
-            text = `📚 ${title}${author ? ` - ${author}` : ''}\n\n${shortDesc}...${price ? `\n\n💰 Cena: ${price} zł` : ''}\n\n👉 ${url}`;
+          // Sales post
+          if (contentText && contentText.length > 50) {
+            const shortText = contentText.substring(0, 200).trim();
+            text = `📚 ${title}${author ? ` - ${author}` : ''}\n\n${shortText}...${price ? `\n\n💰 Cena: ${price} zł` : ''}\n\n👉 ${url}`;
+          } else if (contentText && contentText.length > 0) {
+            text = `📚 ${title}${author ? ` - ${author}` : ''}\n\n${contentText}${price ? `\n\n💰 Cena: ${price} zł` : ''}\n\n👉 ${url}`;
           } else {
-            text = `📚 Polecamy: ${title}${author ? ` - ${author}` : ''}${price ? `\n💰 Cena: ${price} zł` : ''}\n\n👉 Zamów teraz: ${url}`;
+            // No text available - leave empty (just basic info)
+            text = `📚 ${title}${author ? ` - ${author}` : ''}${price ? `\n💰 Cena: ${price} zł` : ''}\n\n👉 ${url}`;
           }
         } else {
-          // Content post - use book info to create an informational post
-          const title = book.title || '';
-          const author = book.author || '';
-          const description = book.description || '';
-          const url = book.product_url || 'https://sklep.antyk.org.pl';
-          
-          if (description && description.length > 30) {
-            const shortDesc = description.substring(0, 150).trim();
-            text = `📖 ${title}${author ? ` - ${author}` : ''}\n\n${shortDesc}...\n\n👉 ${url}`;
+          // Content post
+          if (contentText && contentText.length > 30) {
+            const shortText = contentText.substring(0, 150).trim();
+            text = `📖 ${title}${author ? ` - ${author}` : ''}\n\n${shortText}...\n\n👉 ${url}`;
+          } else if (contentText && contentText.length > 0) {
+            text = `📖 ${title}${author ? ` - ${author}` : ''}\n\n${contentText}\n\n👉 ${url}`;
           } else {
-            text = `📖 Warto przeczytać: ${title}${author ? ` - ${author}` : ''}\n\n👉 ${url}`;
+            // No text available - just basic info
+            text = `📖 ${title}${author ? ` - ${author}` : ''}\n\n👉 ${url}`;
           }
         }
         
